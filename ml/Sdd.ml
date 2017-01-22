@@ -32,6 +32,15 @@ and
   sddand = And of or_or_atom * or_or_atom
 [@@deriving sexp]
 
+type ops = OAnd | OOr
+
+(* v-trees encode variable orderings *)
+type vtree =
+  | VNode of vtree * vtree
+  | VAtom of int
+[@@deriving sexp]
+
+(* check for equality of two SDDs *)
 let rec sdd_and_eq (sdd_a:sddand) (sdd_b:sddand) =
   let And(b1, b2) = sdd_a and And(b3, b4) = sdd_b in
   (sdd_eq b1 b3) && (sdd_eq b2 b4)
@@ -47,10 +56,6 @@ sdd_eq s1 s2 =
   | Atom(a), Atom(b) -> a = b
   | _ -> false
 
-type vtree =
-  | VNode of vtree * vtree
-  | VAtom of int
-[@@deriving sexp]
 
 let string_of_vtree v =
   Sexp.to_string_hum @@ sexp_of_vtree v
@@ -59,18 +64,7 @@ let string_of_sdd sdd =
   Sexp.to_string_hum @@ sexp_of_or_or_atom sdd
 
 
-(** @returns list of all variables in the expression *)
-(* let rec var_lst (expr:boolexpr) lst = *)
-(*   match expr with *)
-(*   | True -> lst *)
-(*   | False -> lst *)
-(*   | Not(e) -> var_lst e lst *)
-(*   | Or(e1, e2) | And(e1, e2) -> *)
-(*     let s1 = var_lst e1 lst in *)
-(*     var_lst e2 s1 *)
-(*   | Atom(i) -> *)
-(*     if List.mem lst i then i :: lst else lst *)
-
+(** generate an SDD given an atom from the Boolean expression grammar *)
 let rec sdd_of_atom vtree atom v =
   match vtree with
   | VAtom(i) -> if i = atom then Atom(Var(i, v)) else Atom(True)
@@ -83,15 +77,9 @@ let rec sdd_of_atom vtree atom v =
     else
       COr(Or([And(left_t, right_t); And(left_f, Atom(False))]))
 
-type ops = OAnd | OOr
 
-(* let sdd_of_var vtree (e:BoolExpr.boolexpr) = *)
-(*   match vtree with *)
-(*   | VNode(v1, v2) -> *)
-
-(*   | VAtom(i) -> *)
-
-
+(** Apply an SDD operation to two atoms
+    @returns an SDD atom *)
 let apply_op_const op a b : sddatom =
   match op with
   | OAnd ->
@@ -114,7 +102,7 @@ type cache_item = {a:sddor;
                    op:ops}
 type cache_type = (cache_item, or_or_atom) Map.Poly.t
 
-
+(** @returns an SDD that is the result of applying 'op' to SDD a and b*)
 let rec apply (cache:cache_type) op (a:or_or_atom) (b:or_or_atom) =
   match a, b with
   | Atom(atom1), Atom(atom2) -> cache, Atom (apply_op_const op atom1 atom2)
