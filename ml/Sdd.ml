@@ -1,6 +1,7 @@
 open Core.Std
 open OUnit2
 
+(** a core Boolean expression data type which is used to represent non-SDD formulas *)
 module BoolExpr = struct
   type boolexpr =
     | False
@@ -15,7 +16,8 @@ module BoolExpr = struct
     sexp_of_boolexpr e
 end
 
-(*encode SDDs as a mutually recursive data type which
+(**
+   encode SDDs as a mutually recursive data type which
    enforces alternation between Or/And nodes and forces
    all Or-Nodes to have And-Nodes for children. This should make
    proving correctness easier *)
@@ -32,6 +34,7 @@ and
   sddand = And of or_or_atom * or_or_atom
 [@@deriving sexp]
 
+(** operations which can be applied to SDDs *)
 type ops = OAnd | OOr
 
 (* v-trees encode variable orderings *)
@@ -57,6 +60,7 @@ sdd_eq s1 s2 =
   | _ -> false
 
 
+(** printing functions *)
 let string_of_vtree v =
   Sexp.to_string_hum @@ sexp_of_vtree v
 
