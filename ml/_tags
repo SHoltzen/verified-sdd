@@ -1,0 +1,1 @@
+<*>:package(core), thread, package(sexplib), package(ppx_sexp_conv), package(ounit)
