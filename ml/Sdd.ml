@@ -14,6 +14,21 @@ module BoolExpr = struct
   let string_of_boolexpr e =
     Sexp.to_string_hum @@
     sexp_of_boolexpr e
+
+  (** evaluate a boolean expression on input i *)
+  let rec eval e i =
+    match e with
+    | False -> false
+    | True -> true
+    | And(e1, e2) ->
+      let r1 = eval e1 i and r2 = eval e2 i in
+      (r1 && r2)
+    | Or(e1, e2) ->
+      let r1 = eval e1 i and r2 = eval e2 i in
+      r1 || r2
+    | Atom(id, b) ->
+      let fb = Map.Poly.find_exn i id in
+      b = fb
 end
 
 (**
@@ -98,7 +113,6 @@ let apply_op_const op a b : sddatom =
      | False, False -> False
      | Var(i, b), False | False, Var(i, b) -> Var(i, b)
      | Var(i1, b1), Var(i2, b2) -> assert (i1 = i2); if (b1 = b2) then Var(i1, b1) else True)
-
 
 
 type cache_item = {a:sddor;
