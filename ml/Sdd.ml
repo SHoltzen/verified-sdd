@@ -243,6 +243,20 @@ let test_apply test_ctx =
   let c2, applied_redundant = apply Map.Poly.empty OAnd applied sdd2 in
   assert_equal applied applied_redundant ~printer:(string_of_sdd)
     ~cmp:(sdd_eq)
+    
+(* Equivalent sentences have identical circuits *)
+let test_canonicity bexpr0 bexpr1 num_vars=
+  let vtree = gen_vtree num_vars in
+  let _, sdd0 = compile vtree (Map.Poly.empty) bexpr0 in
+  let _, sdd1 = compile vtree (Map.Poly.empty) bexpr1 in
+  for counter = 0 to 25 do
+    if not (sdd_eq sdd0 sdd1) then
+      assert_failure
+        (Format.sprintf "Not equal: \nSDD0: %s\nSDD1: %s\n"
+          (string_of_sdd sdd0)
+          (string_of_sdd sdd1))
+    else ()
+  done    
 
 let f0 = BoolExpr.(And(Atom(0, true), Atom(1, false)))
 
@@ -259,6 +273,18 @@ let test_congruent_f1 test_ctx =
 
 let test_congruent_f2 test_ctx =
   test_congruency f2 4
+  
+
+let f3a = BoolExpr.(And(Atom(1, true), Or(Atom(2, true), Atom(3, true))))
+let f3b = BoolExpr.(Or(
+  And(Atom(1, true), Atom(2, true)), 
+  And(Atom(1, true), Atom(3, true))
+))
+
+let test_canonicity_f3 test_ctx =
+  test_canonicity f3a f3b 3
+
+  
 
 
 let suite =
@@ -269,6 +295,7 @@ let suite =
   "congruent_f0">::test_congruent_f0;
   "congruent_f1">::test_congruent_f1;
   "congruent_f2">::test_congruent_f2;
+  "canonicity_f3">::test_canonicity_f3
 ];;
 
 let () =
