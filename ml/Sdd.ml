@@ -220,9 +220,9 @@ let test_congruency bexpr num_vars =
   let vtree = gen_vtree num_vars in
   (* Format.printf "Vtree: %s" (string_of_vtree vtree); *)
   let _, sdd = compile vtree (Map.Poly.empty) bexpr in
-  (* Format.printf "Testing bexpr: %s\nSdd: %s\n" *)
-    (* (BoolExpr.string_of_boolexpr bexpr) (string_of_sdd sdd); *)
-  for counter = 0 to 10 do
+  Format.printf "Testing bexpr: %s\nSdd: %s\n"
+    (BoolExpr.string_of_boolexpr bexpr) (string_of_sdd sdd);
+  for counter = 0 to 25 do
     let input = gen_input num_vars in
     if (eval_sdd_or sdd input) <> (BoolExpr.eval bexpr input) then
     assert_failure
@@ -249,11 +249,17 @@ let f0 = BoolExpr.(And(Atom(0, true), Atom(1, false)))
 let f1 = BoolExpr.(Or(Atom(1, true), Or(Atom(0, false),
                    (And(Atom(0, true), Atom(2, true))))))
 
+let f2 = BoolExpr.(And(Atom(3, false), Or(f0, f1)))
+
 let test_congruent_f0 test_ctx =
   test_congruency f0 2
 
 let test_congruent_f1 test_ctx =
   test_congruency f1 3
+
+let test_congruent_f2 test_ctx =
+  test_congruency f2 4
+
 
 let suite =
 "suite">:::
@@ -262,6 +268,7 @@ let suite =
   "basic_apply">::test_apply;
   "congruent_f0">::test_congruent_f0;
   "congruent_f1">::test_congruent_f1;
+  "congruent_f2">::test_congruent_f2;
 ];;
 
 let () =
