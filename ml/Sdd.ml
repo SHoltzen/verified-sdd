@@ -180,6 +180,7 @@ let rec compile vtree cache (expr:BoolExpr.boolexpr) =
 
 (*********************************************************************************)
 (* tests *)
+(*********************************************************************************)
 
 (** split a list into 2 parts, the length of the first equal to n *)
 let split list n =
@@ -216,6 +217,8 @@ let test_vtree test_ctx =
     (string_of_sdd sdd)
     (string_of_vtree v)
 
+(* test to see if a given bexpr and the SDD it compiles to yield the same result when
+   evaluated on random inputs *)
 let test_congruency bexpr num_vars =
   let vtree = gen_vtree num_vars in
   (* Format.printf "Vtree: %s" (string_of_vtree vtree); *)
