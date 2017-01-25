@@ -284,11 +284,33 @@ let f3b = BoolExpr.(Or(
   And(Atom(1, true), Atom(3, true))
 ))
 
+let f4a = BoolExpr.(Atom(1, false))
+let f4b = BoolExpr.(And(
+  Or(Atom(1, false), Atom(2, true)),
+  Or(Atom(1, false), Atom(2, false))
+))
+
+let f5a = BoolExpr.(Or(Atom(1, true), Atom(2, false)))
+let f5b = BoolExpr.(And(
+  Or(Atom(1, true), Or(Atom(2, false), Atom(3, true))),
+  Or(Atom(1, true), Or(Atom(2, false), Atom(3, false)))
+))
+let f6 = BoolExpr.(And(
+  Or(Or(Atom(1, true), Atom(2, false)), Atom(3, true)),
+  Or(Or(Atom(1, true), Atom(2, false)), Atom(3, false))
+))
+
 let test_canonicity_f3 test_ctx =
   test_canonicity f3a f3b 3
 
-  
+let test_canonicity_f4 test_ctx =
+  test_canonicity f4a f4b 2
 
+let test_canonicity_f5 test_ctx =
+  test_canonicity f5a f5b 3
+
+let test_canonicity_f6 test_ctx =
+  test_canonicity f6 f5b 3
 
 let suite =
 "suite">:::
@@ -298,7 +320,10 @@ let suite =
   "congruent_f0">::test_congruent_f0;
   "congruent_f1">::test_congruent_f1;
   "congruent_f2">::test_congruent_f2;
-  "canonicity_f3">::test_canonicity_f3
+  "canonicity_f3">::test_canonicity_f3;
+  "canonicity_f4">::test_canonicity_f4;
+  "canonicity_f5">::test_canonicity_f5;
+  "canonicity_f6">::test_canonicity_f6
 ];;
 
 let () =
