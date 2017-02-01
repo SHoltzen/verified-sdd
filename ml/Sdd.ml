@@ -39,7 +39,7 @@ type sddatom =
   | Var of int * bool
 [@@deriving sexp]
 
-type sdd = 
+type sdd =
   | Or of (sdd * sdd) list
   | Atom of sddatom
 [@@deriving sexp]
@@ -86,19 +86,31 @@ let string_of_vtree v =
 let string_of_sdd sdd =
   Sexp.to_string_hum @@ sexp_of_sdd sdd
 
+let b_to_atom b =
+  match b with
+  | true -> True
+  | false -> False
+
+let rec expanded_sdd vtree term =
+  match vtree with
+  | VNode(l, r) ->
+    let el, er = if term = True then True, True else True, False in
+    let l = expanded_sdd l el and r = expanded_sdd r er in
+    Or([l, r])
+  | VAtom(a) -> Atom(term)
 
 (** generate an SDD given an atom from the Boolean expression grammar *)
 let rec sdd_of_atom vtree atom v =
   match vtree with
-  | VAtom(i) -> if i = atom then Atom(Var(i, v)) else Atom(True)
+  | VAtom(i) -> if i = atom then
+      Atom(Var(i, v))
+    else Atom(True)
   | VNode(vl, vr) ->
     let left_t = sdd_of_atom vl atom v and
     right_t = sdd_of_atom vr atom v and
     left_f = sdd_of_atom vl atom (not v) in
-    if (left_t = left_f) then (* the atom is in the right vtree *)
-      Or([left_t, right_t])
-    else
-      Or([(left_t, right_t); (left_f, Atom(False))])
+    let f = expanded_sdd vr False in
+    Or([(left_t, right_t); (left_f, f)]) (* if you just do it this way, you don't need to expand *)
 
 
 (** Apply an SDD operation to two atoms
@@ -149,8 +161,6 @@ let rec apply (cache:cache_type) op (a:sdd) (b:sdd) =
   | Atom(atom1), Atom(atom2) -> cache, Atom (apply_op_const op atom1 atom2)
   | Or(or1), Or(or2) -> apply_or or1 or2
   (* manually expand atoms; this should make verification easier *)
-  | Or(or1), Atom(True) | Or(or1), Atom(False) -> apply_or or1 (expand b)
-  | Atom(True), Or(or1) | Atom(False), Or(or1) -> apply_or (expand a) or1
   | _ -> failwith "Invalid SDD: not properly normalized"
 
 
@@ -202,11 +212,12 @@ let rec gen_input num_vars =
   Map.Poly.of_alist_exn l
 
 let test_vtree test_ctx =
-  let v = gen_vtree 3 in
+  let v = gen_vtree 4 in
   let sdd = sdd_of_atom v 1 true in
   Format.printf "Sdd: %s\nVtree:%s"
     (string_of_sdd sdd)
     (string_of_vtree v)
+
 
 (* test to see if a given bexpr and the SDD it compiles to yield the same result when
    evaluated on random inputs *)
@@ -214,8 +225,8 @@ let test_congruency bexpr num_vars =
   let vtree = gen_vtree num_vars in
   (* Format.printf "Vtree: %s" (string_of_vtree vtree); *)
   let _, sdd = compile vtree (Map.Poly.empty) bexpr in
-  Format.printf "Testing bexpr: %s\nSdd: %s\n"
-    (BoolExpr.string_of_boolexpr bexpr) (string_of_sdd sdd);
+  (* Format.printf "Testing bexpr: %s\nSdd: %s\n" *)
+  (*   (BoolExpr.string_of_boolexpr bexpr) (string_of_sdd sdd); *)
   for counter = 0 to 25 do
     let input = gen_input num_vars in
     if (eval_sdd sdd input) <> (BoolExpr.eval bexpr input) then
@@ -237,7 +248,7 @@ let test_apply test_ctx =
   let c2, applied_redundant = apply Map.Poly.empty OAnd applied sdd2 in
   assert_equal applied applied_redundant ~printer:(string_of_sdd)
     ~cmp:(sdd_eq)
-    
+
 (* Equivalent sentences have identical circuits *)
 let test_canonicity bexpr0 bexpr1 num_vars=
   let vtree = gen_vtree num_vars in
@@ -249,8 +260,8 @@ let test_canonicity bexpr0 bexpr1 num_vars=
         (Format.sprintf "Not equal: \nSDD0: %s\nSDD1: %s\n"
           (string_of_sdd sdd0)
           (string_of_sdd sdd1))
-    else ()
-  done    
+        else ()
+  done
 
 let f0 = BoolExpr.(And(Atom(0, true), Atom(1, false)))
 
@@ -267,11 +278,11 @@ let test_congruent_f1 test_ctx =
 
 let test_congruent_f2 test_ctx =
   test_congruency f2 4
-  
+
 
 let f3a = BoolExpr.(And(Atom(1, true), Or(Atom(2, true), Atom(3, true))))
 let f3b = BoolExpr.(Or(
-  And(Atom(1, true), Atom(2, true)), 
+  And(Atom(1, true), Atom(2, true)),
   And(Atom(1, true), Atom(3, true))
 ))
 
