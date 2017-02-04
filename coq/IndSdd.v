@@ -52,7 +52,7 @@ with
 or_list : op -> list (sdd*sdd) -> list (sdd*sdd) -> list(sdd*sdd) -> Prop :=
 | EmptyLeft : forall (l : list (sdd * sdd)) (o : op),
     or_list o [] l []
-| Single : forall (prime sub : sdd) (ltail singleres orres linput : list (sdd * sdd)) (o : op),
+| NonEmptyLeft : forall (prime sub : sdd) (ltail singleres orres linput : list (sdd * sdd)) (o : op),
     single_list o prime sub linput singleres ->
     or_list o ltail linput orres ->
     or_list o ((prime, sub)::ltail) linput (singleres ++ orres)
