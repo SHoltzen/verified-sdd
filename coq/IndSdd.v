@@ -68,6 +68,23 @@ single_list : op -> sdd -> sdd -> list (sdd * sdd) -> list (sdd * sdd) -> Prop :
     single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     single_list o prime1 sub1 ((prime2, sub2)::tl) ((newprime, newsub)::subres).
 
+Example ex_sdd_apply0:
+  sdd_apply OAnd (Or [(Atom ATrue, Atom AFalse)]) (Or [(Atom ATrue, Atom AFalse)]) (Or [(Atom ATrue, Atom AFalse)]).
+Proof.
+  apply ApplyOr.
+  apply (NonEmptyLeft (Atom ATrue) (Atom AFalse) [] [(Atom ATrue, Atom AFalse)] _ _ OAnd).
+  - apply (NonEmptyRight (Atom ATrue)  (Atom ATrue) (Atom AFalse) (Atom AFalse)
+                         (Atom ATrue) (Atom AFalse) OAnd [] []).
+    * apply AtomAndTT.
+    * apply AtomAndFF.
+    * apply EmptyRight.
+  - apply EmptyLeft.
+Qed.
+
+    (* apply (NonEmptyRight (Atom ATrue) (Atom ATrue) (Atom AFalse) *)
+    (*                      (Atom AFalse) (Atom ATrue) (Atom AFalse) OAnd [] []). *)
+
+
 Example ex_sdd_apply1:
   sdd_apply OAnd (Atom ATrue) (Atom AFalse) (Atom AFalse).
 Proof.
