@@ -68,6 +68,26 @@ single_list : op -> sdd -> sdd -> list (sdd * sdd) -> list (sdd * sdd) -> Prop :
     single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     single_list o prime1 sub1 ((prime2, sub2)::tl) ((newprime, newsub)::subres).
 
+Inductive sdd_vtree : sdd -> vtree -> Prop :=
+| AtomTrue : forall n, sdd_vtree (Atom ATrue) (VAtom n)
+| AtomFalse : forall n, sdd_vtree (Atom AFalse) (VAtom n)
+| AtomVar : forall n b, sdd_vtree (Atom (AVar n b)) (VAtom n)
+| OrEmpty : forall v, sdd_vtree (Or []) v
+| OrSingle: forall prime sub lvtree rvtree tail, 
+    sdd_vtree prime lvtree ->
+    sdd_vtree sub rvtree ->
+    sdd_vtree (Or (tail)) (VNode lvtree rvtree) ->
+    sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree).
+
+Example sdd_vtree_ex0:
+  sdd_vtree (Or [(Atom (AVar 0 true), Atom (AVar 1 false))]) (VNode (VAtom 0) (VAtom 1)).
+Proof.
+  constructor.
+  - constructor.
+  - constructor.
+  - constructor.
+Qed.
+
 Example ex_sdd_apply0:
   sdd_apply OAnd (Or [(Atom ATrue, Atom AFalse)]) (Or [(Atom ATrue, Atom AFalse)]) (Or [(Atom ATrue, Atom AFalse)]).
 Proof.
@@ -81,14 +101,58 @@ Proof.
   - apply EmptyLeft.
 Qed.
 
-    (* apply (NonEmptyRight (Atom ATrue) (Atom ATrue) (Atom AFalse) *)
-    (*                      (Atom AFalse) (Atom ATrue) (Atom AFalse) OAnd [] []). *)
-
 
 Example ex_sdd_apply1:
   sdd_apply OAnd (Atom ATrue) (Atom AFalse) (Atom AFalse).
 Proof.
   apply AtomAndTF. Qed.
+
+(* Example sdd_and_eq: *)
+(*   forall (a : sdd), sdd_apply OAnd a a a. *)
+(* Proof. *)
+(*   induction a. *)
+(*   * constructor. *)
+(*     induction l. *)
+(*   + constructor. *)
+(*   + destruct IHl. *)
+    
+
+
+  (* prime, sub : sdd *)
+  (* lvtree, rvtree : vtree *)
+  (* tail : list (sdd * sdd) *)
+  (* H : sdd_vtree prime lvtree *)
+  (* H0 : sdd_vtree sub rvtree *)
+  (* H1 : sdd_vtree (Or tail) (VNode lvtree rvtree) *)
+  (* IHsdd_vtree1 : sdd_apply OAnd prime prime prime *)
+  (* IHsdd_vtree2 : sdd_apply OAnd sub sub sub *)
+  (* IHsdd_vtree3 : sdd_apply OAnd (Or tail) (Or tail) (Or tail) *)
+  (* ============================ *)
+  (*  sdd_apply OAnd (Or ((prime, sub) :: tail)) (Or ((prime, sub) :: tail)) *)
+  (*    (Or ((prime, sub) :: tail)) *)
+
+Example sdd_and_eq:
+  forall  (v : vtree) (a : sdd),
+    sdd_vtree a v ->
+    sdd_apply OAnd a a a.
+Proof.
+  intros.
+  destruct a.
+  induction H.
+  -  constructor.
+  -  constructor.
+  -  constructor.
+  -  constructor.
+     *  constructor.
+  - constructor. 
+    eapply (NonEmptyLeft prime sub tail [(prime, sub)] tail ((prime, sub) :: tail)).
+    * apply NonEmptyRight.
+    + assumption.
+    + assumption.
+    +
+
+        
+
 
 (* this gon' be fun... *)
 (* Theorem self_apply: *)
