@@ -131,31 +131,14 @@ Proof.
     + apply (NonEmptyLeft (Atom (AVar 0 false)) (Atom AFalse) [] [(Atom (AVar 0 false), Atom AFalse)]).
       * apply NonEmptyRightUnsat.
         { constructor. discriminate. }
-        { 
+        { constructor. 
+          - constructor.
+          - discriminate. 
+          - constructor. 
+          - constructor. }
+      * constructor. 
+Qed.
 
-(* Example sdd_and_eq: *)
-(*   forall (a : sdd), sdd_apply OAnd a a a. *)
-(* Proof. *)
-(*   induction a. *)
-(*   * constructor. *)
-(*     induction l. *)
-(*   + constructor. *)
-(*   + destruct IHl. *)
-    
-
-
-  (* prime, sub : sdd *)
-  (* lvtree, rvtree : vtree *)
-  (* tail : list (sdd * sdd) *)
-  (* H : sdd_vtree prime lvtree *)
-  (* H0 : sdd_vtree sub rvtree *)
-  (* H1 : sdd_vtree (Or tail) (VNode lvtree rvtree) *)
-  (* IHsdd_vtree1 : sdd_apply OAnd prime prime prime *)
-  (* IHsdd_vtree2 : sdd_apply OAnd sub sub sub *)
-  (* IHsdd_vtree3 : sdd_apply OAnd (Or tail) (Or tail) (Or tail) *)
-  (* ============================ *)
-  (*  sdd_apply OAnd (Or ((prime, sub) :: tail)) (Or ((prime, sub) :: tail)) *)
-  (*    (Or ((prime, sub) :: tail)) *)
 
 Example sdd_and_eq:
   forall  (v : vtree) (a : sdd),
@@ -175,8 +158,6 @@ Proof.
     * apply NonEmptyRightUnsat.
       { assumption. }
       { discriminate. }
-
-        
 
 
 (* this gon' be fun... *)
