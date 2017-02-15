@@ -223,13 +223,8 @@ Example ex_sdd_apply0:
 Proof.
   apply ApplyOr.
   apply (NonEmptyLeft (Atom ATrue) (Atom AFalse) [] [(Atom ATrue, Atom AFalse)] _ _ OAnd).
-
+  repeat constructor.
   - constructor.
-    + constructor.
-    + discriminate.
-    + constructor.
-    + constructor.
-  - constructor. 
 Qed.
 
 
@@ -248,18 +243,20 @@ Proof.
                         [(Atom (AVar 0 true), Atom (AVar 1 true))]).
     + constructor.
       * constructor.
-      * discriminate.
       * constructor.
       * constructor.
+      * apply (NonEmptyRightUnsat _ _ _ _ (Atom AFalse)).
         { constructor. discriminate. }
         { constructor. }
+        { constructor. }
     + apply (NonEmptyLeft (Atom (AVar 0 false)) (Atom AFalse) [] [(Atom (AVar 0 false), Atom AFalse)]).
-      * apply NonEmptyRightUnsat.
+      * apply (NonEmptyRightUnsat _ _ _ _ (Atom AFalse)).
         { constructor. discriminate. }
-        { constructor. 
+        { constructor. }
+        { apply NonEmptyRightSat. 
           - constructor.
-          - discriminate. 
-          - constructor. 
+          - constructor.
+          - constructor.
           - constructor. }
       * constructor. 
 Qed.
