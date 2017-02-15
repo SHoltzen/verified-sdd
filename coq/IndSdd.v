@@ -1,6 +1,6 @@
 Require Export Bool.Bool.
 Require Export List.
-Print Bool.
+
 
 Notation "x :: l" := (cons x l)
                      (at level 60, right associativity).
@@ -8,6 +8,12 @@ Notation "[ ]" := nil.
 Notation "[ x ; .. ; y ]" := (cons x .. (cons y nil) ..).
 Notation "x ++ y" := (app x y)
                      (right associativity, at level 60).
+
+
+Inductive boolExpr : Type :=
+| BAtom : nat -> bool -> boolExpr
+| BAnd  : boolExpr -> boolExpr -> boolExpr
+| BOr   : boolExpr -> boolExpr -> boolExpr.
 
 Inductive vtree : Type :=
 | VNode : vtree -> vtree -> vtree
@@ -26,11 +32,56 @@ Inductive sdd : Type :=
 Inductive op : Type :=
 | OAnd.
 
-Inductive test : list (bool*bool) -> Prop :=
-| EmptyList : test nil
-| OnlyTrue : test [(true, true)]
-| HeadFlip : forall (b1 b2 : bool) (l : list (bool*bool)), 
-    test((b1, b2)::l) -> test([(b2, b1)]).
+(* the magic of the Vtree lets us turn SDD sat/unsat testing into syntactic queries of the SDD *)
+
+
+(* idea: a false atom is unsat, a false atom conjoined with anything is unsat,
+   in order for an OR to be unsat all its children must be unsat *)
+Inductive sdd_unsat : sdd -> Prop :=
+| UnsatAtom : sdd_unsat (Atom AFalse)
+| UnsatOrPrime : forall tl (prime sub : sdd),
+    sdd_unsat prime ->
+    sdd_unsat (Or tl) ->
+    sdd_unsat (Or ((prime, sub)::tl))
+| UnsatOrSub: forall tl (prime sub : sdd),
+    sdd_unsat sub ->
+    sdd_unsat (Or tl) ->
+    sdd_unsat (Or ((prime, sub)::tl))
+| UnsatEmptyOr :
+    sdd_unsat (Or []).
+
+Example sdd_unsat_ex0:
+  sdd_unsat (Or [(Atom ATrue, Atom AFalse); (Atom (AVar 1 true), Atom AFalse)]).
+Proof.
+  apply UnsatOrSub.
+  constructor.
+  apply UnsatOrSub.
+  constructor.
+  constructor.
+Qed.
+
+(* idea: a true atom is sat, a var is sat,
+   SAT /\ SAT is SAT, a single or-child must be sat for the
+   OR to be sat *)
+Inductive sdd_sat : sdd -> Prop :=
+| SatAtom : sdd_sat (Atom ATrue)
+| SatVar : forall n b, sdd_sat (Atom (AVar n b))
+| SatOr : forall tl (prime sub : sdd),
+    sdd_sat prime ->
+    sdd_sat sub ->
+    sdd_sat (Or ((prime, sub) :: tl))
+| SatOrStep : forall tl (prime sub : sdd),
+    sdd_sat (Or tl) ->
+    sdd_sat (Or ((prime, sub) :: tl)).
+
+Example sdd_sat_ex0 :
+  sdd_sat (Or [(Atom ATrue, Atom AFalse); (Atom ATrue, Atom (AVar 1 true))]).
+Proof.
+  apply SatOrStep. constructor. constructor. constructor.
+Qed.
+
+
+
 
 
 Inductive sdd_apply : op -> sdd -> sdd -> sdd -> Prop :=
@@ -64,12 +115,13 @@ single_list : op -> sdd -> sdd -> list (sdd * sdd) -> list (sdd * sdd) -> Prop :
     single_list o prime sub [] []
 | NonEmptyRightSat : forall (prime1 prime2 sub1 sub2 newprime newsub : sdd) (o : op) (tl subres : list (sdd * sdd)),
     sdd_apply OAnd prime1 prime2 newprime ->
-    newprime <> Atom AFalse ->
+    sdd_sat newprime ->
     sdd_apply o sub1 sub2 newsub ->
     single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     single_list o prime1 sub1 ((prime2, sub2)::tl) ((newprime, newsub)::subres)
-| NonEmptyRightUnsat : forall (prime1 prime2 sub1 sub2: sdd) (o : op) (tl subres : list (sdd * sdd)),
-    sdd_apply OAnd prime1 prime2 (Atom AFalse) ->
+| NonEmptyRightUnsat : forall (prime1 prime2 sub1 sub2 r: sdd) (o : op) (tl subres : list (sdd * sdd)),
+    sdd_apply OAnd prime1 prime2 r ->
+    sdd_unsat r ->
     single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     single_list o prime1 sub1 ((prime2, sub2)::tl) subres.
 
@@ -91,6 +143,79 @@ Proof.
   - constructor.
   - constructor.
   - constructor.
+Qed.
+
+(* an interesting theorem: all valid SDDs are either SAT or UNSAT. *)
+Theorem sdd_sat_or_unsat :
+  forall (sdd : sdd) vtree,
+    sdd_vtree sdd vtree ->
+    sdd_unsat sdd \/ sdd_sat sdd.
+Proof.
+Admitted.
+
+Inductive expanded_sdd : vtree -> atom -> sdd -> Prop :=
+| ExpandAtomT : forall n, expanded_sdd (VAtom n) ATrue (Atom ATrue)
+| ExpandAtomF : forall n, expanded_sdd (VAtom n) AFalse (Atom AFalse)
+| ExpandFalseNode : forall lvtree rvtree lsdd rsdd,
+    expanded_sdd lvtree ATrue lsdd ->
+    expanded_sdd rvtree AFalse rsdd ->
+    expanded_sdd (VNode lvtree rvtree) AFalse (Or [(lsdd, rsdd)])
+| ExpandTrueNode : forall lvtree rvtree lsdd rsdd,
+    expanded_sdd lvtree ATrue lsdd ->
+    expanded_sdd rvtree ATrue lsdd ->
+    expanded_sdd (VNode lvtree rvtree) ATrue (Or [(lsdd, rsdd)]).
+
+
+(* need to handle cases when the derived primes are sat/unsat, otherwise
+   you get false primes in the generated SDD *)
+Inductive sdd_of_var : nat -> vtree -> bool -> sdd -> Prop :=
+| VarOfLeafMatchT : forall n b, sdd_of_var n (VAtom n) b (Atom (AVar n b))
+| VarOfLeafNonmatchT : forall n1 n2 b,
+    n1 <> n2 ->
+    sdd_of_var n1 (VAtom n2) b (Atom ATrue)
+| VarOfLeafNonmatchF : forall n1 n2 b,
+    n1 <> n2 ->
+    sdd_of_var n1 (VAtom n2) b (Atom AFalse)
+| VarOfNode : forall n b lvtree rvtree lsdd_t rsdd_t lsdd_f false_expanded,
+    sdd_of_var n lvtree b lsdd_t ->
+    sdd_of_var n lvtree (negb b) lsdd_f ->
+    sdd_of_var n rvtree b rsdd_t ->
+    expanded_sdd rvtree AFalse false_expanded ->
+    sdd_of_var n (VNode lvtree rvtree) b
+               (Or [(lsdd_t, rsdd_t); (lsdd_f, false_expanded)]).
+
+(*
+The generated term containing the unsat branch:
+(Or
+ (((Atom True)
+   (Or
+    (((Atom (Var 1 true)) (Atom True)) ((Atom (Var 1 false)) (Atom False)))))
+  ((Atom True) (Or (((Atom True) (Atom False)))))))
+*)
+Example sdd_of_var_ex0:
+  sdd_of_var 2 (VNode (VAtom 1) (VNode (VAtom 2) (VAtom 3))) true
+             (Or [(Atom ATrue,
+                   (Or [(Atom (AVar 2 true), (Atom ATrue));
+                          (Atom (AVar 2 false), Atom AFalse)]));
+                    (Atom ATrue, Or ([(Atom ATrue, Atom AFalse)]))]).
+Proof.
+  (* coming up with this term SUCKS... *)
+  eapply (VarOfNode 2 true (VAtom 1)
+                    (VNode (VAtom 2) (VAtom 3))
+                    (Atom ATrue)
+                    (Or [(Atom (AVar 2 true), Atom ATrue); (Atom (AVar 2 false), Atom AFalse)])
+                    (Atom ATrue)
+                    (Or ([(Atom ATrue, Atom AFalse)]))
+         ).
+  - constructor. discriminate.
+  - constructor. discriminate.
+  - constructor. constructor.
+    + constructor.
+    + constructor. discriminate.
+    + constructor.
+  - apply ExpandFalseNode.
+    + constructor.
+    + constructor.
 Qed.
 
 Example ex_sdd_apply0:
@@ -131,31 +256,14 @@ Proof.
     + apply (NonEmptyLeft (Atom (AVar 0 false)) (Atom AFalse) [] [(Atom (AVar 0 false), Atom AFalse)]).
       * apply NonEmptyRightUnsat.
         { constructor. discriminate. }
-        { 
+        { constructor. 
+          - constructor.
+          - discriminate. 
+          - constructor. 
+          - constructor. }
+      * constructor. 
+Qed.
 
-(* Example sdd_and_eq: *)
-(*   forall (a : sdd), sdd_apply OAnd a a a. *)
-(* Proof. *)
-(*   induction a. *)
-(*   * constructor. *)
-(*     induction l. *)
-(*   + constructor. *)
-(*   + destruct IHl. *)
-    
-
-
-  (* prime, sub : sdd *)
-  (* lvtree, rvtree : vtree *)
-  (* tail : list (sdd * sdd) *)
-  (* H : sdd_vtree prime lvtree *)
-  (* H0 : sdd_vtree sub rvtree *)
-  (* H1 : sdd_vtree (Or tail) (VNode lvtree rvtree) *)
-  (* IHsdd_vtree1 : sdd_apply OAnd prime prime prime *)
-  (* IHsdd_vtree2 : sdd_apply OAnd sub sub sub *)
-  (* IHsdd_vtree3 : sdd_apply OAnd (Or tail) (Or tail) (Or tail) *)
-  (* ============================ *)
-  (*  sdd_apply OAnd (Or ((prime, sub) :: tail)) (Or ((prime, sub) :: tail)) *)
-  (*    (Or ((prime, sub) :: tail)) *)
 
 Example sdd_and_eq:
   forall  (v : vtree) (a : sdd),
@@ -175,8 +283,6 @@ Proof.
     * apply NonEmptyRightUnsat.
       { assumption. }
       { discriminate. }
-
-        
 
 
 (* this gon' be fun... *)

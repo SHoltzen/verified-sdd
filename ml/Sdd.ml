@@ -212,7 +212,7 @@ let rec gen_input num_vars =
   Map.Poly.of_alist_exn l
 
 let test_vtree test_ctx =
-  let v = gen_vtree 4 in
+  let v = gen_vtree 3 in
   let sdd = sdd_of_atom v 1 true in
   Format.printf "Sdd: %s\nVtree:%s"
     (string_of_sdd sdd)
