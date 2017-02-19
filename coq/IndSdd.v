@@ -1,14 +1,9 @@
 Require Export Bool.Bool.
 Require Export List.
-<<<<<<< HEAD
 Require Export Coq.Unicode.Utf8_core.
 
-Require Export VarAssign.
+Require Import VarAssign.
 
-Print Bool.
-=======
-
->>>>>>> 426c316f0ea7e6432240719f831722b8f1641f25
 
 Notation "x :: l" := (cons x l)
                      (at level 60, right associativity).
@@ -129,22 +124,12 @@ apply_single_list : op -> sdd -> sdd -> list (sdd * sdd) -> list (sdd * sdd) -> 
     sdd_apply OAnd prime1 prime2 newprime ->
     sdd_sat newprime ->
     sdd_apply o sub1 sub2 newsub ->
-<<<<<<< HEAD
     apply_single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     apply_single_list o prime1 sub1 ((prime2, sub2)::tl) ((newprime, newsub)::subres)
 | NonEmptyRightUnsat : forall (prime1 prime2 sub1 sub2: sdd) (o : op) (tl subres : list (sdd * sdd)),
     sdd_apply OAnd prime1 prime2 (Atom AFalse) ->
     apply_single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     apply_single_list o prime1 sub1 ((prime2, sub2)::tl) subres.
-=======
-    single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
-    single_list o prime1 sub1 ((prime2, sub2)::tl) ((newprime, newsub)::subres)
-| NonEmptyRightUnsat : forall (prime1 prime2 sub1 sub2 r: sdd) (o : op) (tl subres : list (sdd * sdd)),
-    sdd_apply OAnd prime1 prime2 r ->
-    sdd_unsat r ->
-    single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
-    single_list o prime1 sub1 ((prime2, sub2)::tl) subres.
->>>>>>> 426c316f0ea7e6432240719f831722b8f1641f25
 
 Inductive sdd_vtree : sdd -> vtree -> Prop :=
 | AtomTrue : forall n, sdd_vtree (Atom ATrue) (VAtom n)
@@ -266,26 +251,15 @@ Proof.
       * constructor.
       * constructor.
       * constructor.
-      * apply (NonEmptyRightUnsat _ _ _ _ (Atom AFalse)).
+      * constructor.
         { constructor. discriminate. }
-        { constructor. }
         { constructor. }
     + apply (NonEmptyLeft (Atom (AVar 0 false)) (Atom AFalse) [] [(Atom (AVar 0 false), Atom AFalse)]).
-      * apply (NonEmptyRightUnsat _ _ _ _ (Atom AFalse)).
+      * apply NonEmptyRightUnsat.
         { constructor. discriminate. }
-<<<<<<< HEAD
-        { Admitted.
-=======
-        { constructor. }
-        { apply NonEmptyRightSat. 
-          - constructor.
-          - constructor.
-          - constructor.
-          - constructor. }
-      * constructor. 
+        { constructor. constructor. constructor. constructor. constructor. }
+      * constructor.
 Qed.
->>>>>>> 426c316f0ea7e6432240719f831722b8f1641f25
-
 
 Example sdd_and_eq:
   forall  (v : vtree) (a : sdd),
@@ -306,7 +280,6 @@ Proof.
       { Admitted. (*assumption. }
       { discriminate. }*)
 
-<<<<<<< HEAD
 
 (* Apply preserves vtree consistency
   forall v sdd1 sdd2 sddRes, sdd_vtree sdd1 v → sdd_vtree sdd2 v → sdd_apply OAnd sdd1 sdd2 sddRes → sdd_vtree sddRes v.
@@ -345,6 +318,5 @@ Proof.
     * apply SDDEvalEmpty.
   - simpl. eapply (OrListNonEmpty true []). apply OrListEmpty. 
 Qed.
-=======
->>>>>>> 426c316f0ea7e6432240719f831722b8f1641f25
 
+Inductive compile 

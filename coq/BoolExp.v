@@ -167,10 +167,11 @@ match a with
               end)
 end.
 
+(*
 Lemma eq_atom_atom' :
   forall n n0 b, b_b'_equivalent (Atom n b) (Atom' n0) = true -> ((n = n0) /\ (b = true)).
 Admitted.
-
+*)
 Lemma eq_atom_false_not' :
   forall n b', b_b'_equivalent (Atom n false) (Not' b') = true ->
                     (b' = (Atom' n)).
@@ -196,13 +197,13 @@ Admitted.
 Lemma neq_and_not' :
   forall b1 b2 b', b_b'_equivalent (And b1 b2) (Not' b') = false.
 Admitted.
-
+(*
 Lemma eq_and_and' :
   forall b1 b2 b'1 b'2, b_b'_equivalent b1 b'1 = true ->
                         b_b'_equivalent b2 b'2 = true ->
                         b_b'_equivalent (And b1 b2) (And' b'1 b'2) = true.
 Admitted.
-
+*)
 Lemma neq_and_or' :
   forall b1 b2 b'1 b'2, b_b'_equivalent (And b1 b2) (Or' b'1 b'2) = false.
 Admitted.
@@ -216,6 +217,7 @@ Proof.
   - reflexivity.
 Qed.
 
+(*
 Theorem b_b'_equivalent_sameResult :
   forall b b' va, (b_b'_equivalent b b') = true ->
                   eqOptBool (eval_ b va) (eval_' b' va) = true.
@@ -236,5 +238,5 @@ Proof.
 
 
 
-
+*)
 
