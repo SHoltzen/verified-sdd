@@ -319,4 +319,18 @@ Proof.
   - simpl. eapply (OrListNonEmpty true []). apply OrListEmpty. 
 Qed.
 
-Inductive compile 
+(* Inductive compile *)
+
+
+Ltac rewAndInvert :=
+  match goal with
+  | [ H1: _ = ?x, H2: _ = ?x |- _ ] =>
+      rewrite <- H2 in H1; inversion H1
+  end.
+
+
+
+Inductive sdd' : Type :=
+| Atom    : atom -> sdd
+| And     : sdd -> sdd -> sdd
+| OrEmpty : 
