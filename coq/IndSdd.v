@@ -84,21 +84,23 @@ Proof.
 Qed.
 
 
+Inductive atom_apply : op → atom → atom → atom → Prop ≔
+| AndTT : atom_apply OAnd ATrue ATrue ATrue
+| AndTF : atom_apply OAnd ATrue AFalse AFalse
+| AndFT : atom_apply OAnd AFalse ATrue AFalse
+| AndFF : atom_apply OAnd AFalse AFalse AFalse
+| AndVT : forall (n:nat) (b:bool), atom_apply OAnd (AVar n b) ATrue (AVar n b)
+| AndTV : forall (n:nat) (b:bool), atom_apply OAnd ATrue (AVar n b) (AVar n b)
+| AndVF : forall (n:nat) (b:bool), atom_apply OAnd (AVar n b) AFalse AFalse
+| AndFV : forall (n:nat) (b:bool), atom_apply OAnd AFalse (AVar n b) AFalse
+| AndVVEq : forall (n:nat) (b:bool), atom_apply OAnd (AVar n b) (AVar n b) (AVar n b)
+| AndVVNeq : forall (n:nat) (b1:bool) (b2:bool), (b1 <> b2) → atom_apply OAnd (AVar n b1) (AVar n b2) (AFalse).
 
 
 
 Inductive sdd_apply : op -> sdd -> sdd -> sdd -> Prop :=
-| AtomAndTT : sdd_apply OAnd (Atom ATrue) (Atom ATrue) (Atom ATrue)
-| AtomAndTF : sdd_apply OAnd (Atom ATrue) (Atom AFalse) (Atom AFalse) 
-| AtomAndFT : sdd_apply OAnd (Atom AFalse) (Atom ATrue) (Atom AFalse)
-| AtomAndFF : sdd_apply OAnd (Atom AFalse) (Atom AFalse) (Atom AFalse)
-| AtomAndVT : forall (n : nat) (b : bool), sdd_apply OAnd (Atom (AVar n b)) (Atom ATrue) (Atom (AVar n b))
-| AtomAndTV : forall (n : nat) (b : bool), sdd_apply OAnd (Atom ATrue) (Atom (AVar n b)) (Atom (AVar n b))
-| AtomAndVF : forall (n : nat) (b : bool), sdd_apply OAnd (Atom AFalse) (Atom (AVar n b)) (Atom AFalse)
-| AtomAndFV : forall (n : nat) (b : bool), sdd_apply OAnd (Atom (AVar n b)) (Atom AFalse) (Atom AFalse)
-| AtomAndVVEq : forall (n : nat) (b : bool), sdd_apply OAnd (Atom (AVar n b)) (Atom (AVar n b)) (Atom (AVar n b))
-| AtomAndVVNEq : forall (n : nat) (b1 : bool) (b2 : bool),
-    (b1 <> b2) -> sdd_apply OAnd (Atom (AVar n b1)) (Atom (AVar n b2)) (Atom AFalse)
+| ApplyAtom : forall (a1:atom) (a2:atom) (a3:atom),
+    atom_apply op a1 a2 a3 → sdd_apply (Atom a1) (Atom a2) (Atom a3)
 | ApplyOr : forall (l1 l2 res: list (sdd*sdd)) (o : op),
     apply_or_list o l1 l2 res -> sdd_apply o (Or l1) (Or l2) (Or res)
 
@@ -329,8 +331,24 @@ Ltac rewAndInvert :=
   end.
 
 
+Ltac rewAndInvert ≔
+     match goal with
+     | [ H1: _ = ?x, H2: _ = ?x ⊢ _ ] ⇒ rewrite ← H2 in H1; inversion H1
+     end.
 
-Inductive sdd' : Type :=
-| Atom    : atom -> sdd
-| And     : sdd -> sdd -> sdd
-| OrEmpty : 
+Lemma or_list_right_empty :
+  forall o l res, apply_or_list o l [] res → res = [].
+
+Theorem apply_preserves_vtree :
+  forall sdd1 sdd2 sddRes v o,
+    sdd_vtree sdd1 v →
+    sdd_vtree sdd2 v →
+    sdd_apply o sdd1 sdd2 sddRes →
+    sdd_vtree sddRes v.
+
+Theorem compile_correct :
+  forall (boolExp:boolExpr) (sdd:sdd) (input:varAssign) (result:bool),
+    compile boolExp sdd →
+    eval_sdd sdd result input →
+    eval boolExp result input.
+
