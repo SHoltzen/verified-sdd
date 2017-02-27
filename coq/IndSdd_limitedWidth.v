@@ -29,7 +29,7 @@ Inductive atom : Type :=
 
 Inductive sdd : Type :=
           (*prime sub   next *)
-| Or: list (sdd * sdd) -> sdd
+| Or: ((sdd * sdd)*(sdd * sdd)) -> sdd
 | Atom : atom -> sdd.
 
 Inductive op : Type :=
@@ -42,25 +42,19 @@ Inductive op : Type :=
    in order for an OR to be unsat all its children must be unsat *)
 Inductive sdd_unsat : sdd -> Prop :=
 | UnsatAtom : sdd_unsat (Atom AFalse)
-| UnsatOrPrime : forall tl (prime sub : sdd),
-    sdd_unsat prime ->
-    sdd_unsat (Or tl) ->
-    sdd_unsat (Or ((prime, sub)::tl))
-| UnsatOrSub: forall tl (prime sub : sdd),
-    sdd_unsat sub ->
-    sdd_unsat (Or tl) ->
-    sdd_unsat (Or ((prime, sub)::tl))
-| UnsatEmptyOr :
-    sdd_unsat (Or []).
+| UnsatOrPrime : forall (prime0 sub0 prime1 sub1 : sdd),
+    sdd_unsat prime0 ->
+    sdd_unsat prime1 ->
+    sdd_unsat (Or ((prime0, sub0),(prime1, sub1)))
+| UnsatOrSub: forall (prime0 sub0 prime1 sub1 : sdd),
+    sdd_unsat sub0 ->
+    sdd_unsat sub1 ->
+    sdd_unsat (Or ((prime0, sub0),(prime1, sub1))).
 
 Example sdd_unsat_ex0:
-  sdd_unsat (Or [(Atom ATrue, Atom AFalse); (Atom (AVar 1 true), Atom AFalse)]).
+  sdd_unsat (Or ((Atom ATrue, Atom AFalse), (Atom (AVar 1 true), Atom AFalse))).
 Proof.
-  apply UnsatOrSub.
-  constructor.
-  apply UnsatOrSub.
-  constructor.
-  constructor.
+  apply UnsatOrSub; constructor.
 Qed.
 
 (* idea: a true atom is sat, a var is sat,
@@ -69,18 +63,20 @@ Qed.
 Inductive sdd_sat : sdd -> Prop :=
 | SatAtom : sdd_sat (Atom ATrue)
 | SatVar : forall n b, sdd_sat (Atom (AVar n b))
-| SatOr : forall tl (prime sub : sdd),
+| SatOrLeft : forall tl (prime sub : sdd),
     sdd_sat prime ->
     sdd_sat sub ->
-    sdd_sat (Or ((prime, sub) :: tl))
-| SatOrStep : forall tl (prime sub : sdd),
-    sdd_sat (Or tl) ->
-    sdd_sat (Or ((prime, sub) :: tl)).
+    sdd_sat (Or ((prime, sub), tl))
+| SatOrRight : forall tl (prime sub : sdd),
+    sdd_sat prime ->
+    sdd_sat sub ->
+    sdd_sat (Or (tl, (prime, sub))).
+
 
 Example sdd_sat_ex0 :
-  sdd_sat (Or [(Atom ATrue, Atom AFalse); (Atom ATrue, Atom (AVar 1 true))]).
+  sdd_sat (Or ((Atom ATrue, Atom AFalse), (Atom ATrue, Atom (AVar 1 true)))).
 Proof.
-  apply SatOrStep. constructor. constructor. constructor.
+  apply SatOrRight; constructor.
 Qed.
 
 
@@ -96,62 +92,113 @@ Inductive atom_apply : op → atom → atom → atom → Prop :=
 | AndVVEq : forall (n:nat) (b:bool), atom_apply OAnd (AVar n b) (AVar n b) (AVar n b)
 | AndVVNeq : forall (n:nat) (b1:bool) (b2:bool), (b1 <> b2) → atom_apply OAnd (AVar n b1) (AVar n b2) (AFalse).
 
-
-
 Inductive sdd_apply : op -> sdd -> sdd -> sdd -> Prop :=
 | ApplyAtom : forall (a1:atom) (a2:atom) (a3:atom) (o:op),
     atom_apply o a1 a2 a3 → sdd_apply o (Atom a1) (Atom a2) (Atom a3)
-| ApplyOr : forall (l1 l2 res: list (sdd*sdd)) (o : op),
-    apply_or_list o l1 l2 res -> sdd_apply o (Or l1) (Or l2) (Or res)
+| ApplyOr : forall o p1 s1 p2 s2 pa sa pb sb pRes1 sRes1 pRes2 sRes2,
+    cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pRes1,sRes1) (pRes2,sRes2) ->
+    sdd_apply o (Or ((p1,s1),(p2,s2))) (Or ((pa,sa),(pb,sb))) (Or ((pRes1,sRes1),(pRes2,sRes2)))
 
 with
 
-(* an auxiliary inductive type to handle applying together two lists of primes and subs *)
-apply_or_list : op -> list (sdd*sdd) -> list (sdd*sdd) -> list(sdd*sdd) -> Prop :=
-| EmptyLeft : forall (l : list (sdd * sdd)) (o : op),
-    apply_or_list o [] l []
-| NonEmptyLeft : forall (prime sub : sdd) (ltail singleres orres linput : list (sdd * sdd)) (o : op),
-    apply_single_list o prime sub linput singleres ->
-    apply_or_list o ltail linput orres ->
-    apply_or_list o ((prime, sub)::ltail) linput (singleres ++ orres)
-
-with
-
-(* an auxiliary inductive type to handle applying together a single prime and sub with a list of primes
-   and subs *)
-apply_single_list : op -> sdd -> sdd -> list (sdd * sdd) -> list (sdd * sdd) -> Prop :=
-| EmptyRight : forall (prime sub : sdd) (o : op),
-    apply_single_list o prime sub [] []
-| NonEmptyRightSat : forall (prime1 prime2 sub1 sub2 newprime newsub : sdd) (o : op) (tl subres : list (sdd * sdd)),
-    sdd_apply OAnd prime1 prime2 newprime ->
-    sdd_sat newprime ->
-    sdd_apply o sub1 sub2 newsub ->
-    apply_single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
-    apply_single_list o prime1 sub1 ((prime2, sub2)::tl) ((newprime, newsub)::subres)
-| NonEmptyRightUnsat : forall (prime1 prime2 sub1 sub2: sdd) (o : op) (tl subres : list (sdd * sdd)),
-    sdd_apply OAnd prime1 prime2 (Atom AFalse) ->
-    apply_single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
-    apply_single_list o prime1 sub1 ((prime2, sub2)::tl) subres.
+cross_and_prune : op -> (sdd*sdd) -> (sdd*sdd) -> (sdd*sdd) -> (sdd*sdd) -> (sdd*sdd) -> (sdd*sdd)
+                  -> Prop :=
+| OneSatA1 : forall o p1 s1 p2 s2 pa sa pb sb pa1 sa1,
+  sdd_apply OAnd p1 pa pa1 ->
+  sdd_apply OAnd p2 pa (Atom AFalse) ->
+  sdd_apply OAnd p1 pb (Atom AFalse) ->
+  sdd_apply OAnd p2 pb (Atom AFalse) ->
+  sdd_sat pa1 -> sdd_apply o s1 sa sa1 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa1,sa1) ((Atom ATrue), (Atom AFalse))
+| OneSatA2 : forall o p1 s1 p2 s2 pa sa pb sb pa2 sa2,
+  sdd_apply OAnd p1 pa (Atom AFalse) ->
+  sdd_apply OAnd p2 pa pa2 ->
+  sdd_apply OAnd p1 pb (Atom AFalse) ->
+  sdd_apply OAnd p2 pb (Atom AFalse) ->
+  sdd_sat pa2 -> sdd_apply o s2 sa sa2 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa2,sa2) ((Atom ATrue), (Atom AFalse))
+| OneSatB1 : forall o p1 s1 p2 s2 pa sa pb sb pb1 sb1,
+  sdd_apply OAnd p1 pa (Atom AFalse) ->
+  sdd_apply OAnd p2 pa (Atom AFalse) ->
+  sdd_apply OAnd p1 pb pb1 ->
+  sdd_apply OAnd p2 pb (Atom AFalse) ->
+  sdd_sat pb1 -> sdd_apply o s1 sb sb1 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pb1,sb1) ((Atom ATrue), (Atom AFalse))
+| OneSatB2 : forall o p1 s1 p2 s2 pa sa pb sb pb2 sb2,
+  sdd_apply OAnd p1 pa (Atom AFalse) ->
+  sdd_apply OAnd p2 pa (Atom AFalse) ->
+  sdd_apply OAnd p1 pb (Atom AFalse) ->
+  sdd_apply OAnd p2 pb pb2 ->
+  sdd_sat pb2 -> sdd_apply o s1 sb sb2 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pb2,sb2) ((Atom ATrue), (Atom AFalse))
+| TwoSatA1A2 : forall o p1 s1 p2 s2 pa sa pb sb pa1 sa1 pa2 sa2,
+  sdd_apply OAnd p1 pa pa1 ->
+  sdd_apply OAnd p2 pa pa2 ->
+  sdd_apply OAnd p1 pb (Atom AFalse) ->
+  sdd_apply OAnd p2 pb (Atom AFalse) ->
+  sdd_sat pa1 -> sdd_sat pa2 ->
+  sdd_apply o s1 sa sa1 -> sdd_apply o s2 sa sa2 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa1,sa1) (pa2, sa2)
+| TwoSatA1B1 : forall o p1 s1 p2 s2 pa sa pb sb pa1 sa1 pb1 sb1,
+  sdd_apply OAnd p1 pa pa1 ->
+  sdd_apply OAnd p2 pa (Atom AFalse) ->
+  sdd_apply OAnd p1 pb pb1 ->
+  sdd_apply OAnd p2 pb (Atom AFalse) ->
+  sdd_sat pa1 -> sdd_sat pb1 ->
+  sdd_apply o s1 sa sa1 -> sdd_apply o s1 sb sb1 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa1,sa1) (pb1, sb1)
+| TwoSatA1B2 : forall o p1 s1 p2 s2 pa sa pb sb pa1 sa1 pb2 sb2,
+  sdd_apply OAnd p1 pa pa1 ->
+  sdd_apply OAnd p2 pa (Atom AFalse) ->
+  sdd_apply OAnd p1 pb (Atom AFalse) ->
+  sdd_apply OAnd p2 pb pb2 ->
+  sdd_sat pa1 -> sdd_sat pb2 ->
+  sdd_apply o s1 sa sa1 -> sdd_apply o s2 sb sb2 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa1,sa1) (pb2, sb2)
+| TwoSatA2B1 : forall o p1 s1 p2 s2 pa sa pb sb pa2 sa2 pb1 sb1,
+  sdd_apply OAnd p1 pa (Atom AFalse) ->
+  sdd_apply OAnd p2 pa pa2 ->
+  sdd_apply OAnd p1 pb pb1 ->
+  sdd_apply OAnd p2 pb (Atom AFalse) ->
+  sdd_sat pa2 -> sdd_sat pb1 ->
+  sdd_apply o s1 sa sa2 -> sdd_apply o s2 sb sb1 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa2,sa2) (pb1, sb1)
+| TwoSatA2B2 : forall o p1 s1 p2 s2 pa sa pb sb pa2 sa2 pb2 sb2,
+  sdd_apply OAnd p1 pa (Atom AFalse) ->
+  sdd_apply OAnd p2 pa pa2 ->
+  sdd_apply OAnd p1 pb (Atom AFalse) ->
+  sdd_apply OAnd p2 pb pb2 ->
+  sdd_sat pa2 -> sdd_sat pb2 ->
+  sdd_apply o s1 sa sa2 -> sdd_apply o s2 sb sb2 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pa2,sa2) (pb2, sb2)
+| TwoSatB1B2 : forall o p1 s1 p2 s2 pa sa pb sb pb1 sb1 pb2 sb2,
+  sdd_apply OAnd p1 pa (Atom AFalse) ->
+  sdd_apply OAnd p2 pa (Atom AFalse) ->
+  sdd_apply OAnd p1 pb pb1 ->
+  sdd_apply OAnd p2 pb pb2 ->
+  sdd_sat pb1 -> sdd_sat pb2 ->
+  sdd_apply o s1 sb sb1 -> sdd_apply o s2 sb sb2 ->
+  cross_and_prune o (p1,s1) (p2,s2) (pa,sa) (pb,sb) (pb1,sb1) (pb2, sb2).
 
 Inductive sdd_vtree : sdd -> vtree -> Prop :=
+| OrSingle: forall p1 s1 p2 s2 lvtree rvtree,
+    sdd_vtree p1 lvtree ->
+    sdd_vtree p2 lvtree ->
+    sdd_vtree s1 rvtree ->
+    sdd_vtree s2 rvtree ->
+    sdd_vtree (Or ((p1,s1),(p2,s2))) (VNode lvtree rvtree)
 | AtomTrue : forall n, sdd_vtree (Atom ATrue) (VAtom n)
 | AtomFalse : forall n, sdd_vtree (Atom AFalse) (VAtom n)
-| AtomVar : forall n b, sdd_vtree (Atom (AVar n b)) (VAtom n)
-| OrEmpty : forall v, sdd_vtree (Or []) v
-| OrSingle: forall prime sub lvtree rvtree tail, 
-    sdd_vtree prime lvtree ->
-    sdd_vtree sub rvtree ->
-    sdd_vtree (Or (tail)) (VNode lvtree rvtree) ->
-    sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree).
+| AtomVar : forall n b, sdd_vtree (Atom (AVar n b)) (VAtom n).
+
 
 Example sdd_vtree_ex0:
-  sdd_vtree (Or [(Atom (AVar 0 true), Atom (AVar 1 false))]) (VNode (VAtom 0) (VAtom 1)).
+  sdd_vtree (Or ((Atom (AVar 0 true), Atom (AVar 1 false)), ((Atom AFalse),(Atom AFalse))))
+            (VNode (VAtom 0) (VAtom 1)).
 Proof.
-  constructor.
-  - constructor.
-  - constructor.
-  - constructor.
+  constructor; constructor.
 Qed.
+
 
 (* an interesting theorem: all valid SDDs are either SAT or UNSAT. *)
 Theorem sdd_sat_or_unsat :
@@ -161,7 +208,7 @@ Theorem sdd_sat_or_unsat :
 Proof.
 Admitted.
 
-Inductive expanded_sdd : vtree -> atom -> sdd -> Prop :=
+(*Inductive expanded_sdd : vtree -> atom -> sdd -> Prop :=
 | ExpandAtomT : forall n, expanded_sdd (VAtom n) ATrue (Atom ATrue)
 | ExpandAtomF : forall n, expanded_sdd (VAtom n) AFalse (Atom AFalse)
 | ExpandFalseNode : forall lvtree rvtree lsdd rsdd,
@@ -171,12 +218,12 @@ Inductive expanded_sdd : vtree -> atom -> sdd -> Prop :=
 | ExpandTrueNode : forall lvtree rvtree lsdd rsdd,
     expanded_sdd lvtree ATrue lsdd ->
     expanded_sdd rvtree ATrue lsdd ->
-    expanded_sdd (VNode lvtree rvtree) ATrue (Or [(lsdd, rsdd)]).
+    expanded_sdd (VNode lvtree rvtree) ATrue (Or [(lsdd, rsdd)]).*)
 
 
 (* need to handle cases when the derived primes are sat/unsat, otherwise
    you get false primes in the generated SDD *)
-Inductive sdd_of_var : nat -> vtree -> bool -> sdd -> Prop :=
+(*Inductive sdd_of_var : nat -> vtree -> bool -> sdd -> Prop :=
 | VarOfLeafMatchT : forall n b, sdd_of_var n (VAtom n) b (Atom (AVar n b))
 | VarOfLeafNonmatchT : forall n1 n2 b,
     n1 <> n2 ->
@@ -190,7 +237,7 @@ Inductive sdd_of_var : nat -> vtree -> bool -> sdd -> Prop :=
     sdd_of_var n rvtree b rsdd_t ->
     expanded_sdd rvtree AFalse false_expanded ->
     sdd_of_var n (VNode lvtree rvtree) b
-               (Or [(lsdd_t, rsdd_t); (lsdd_f, false_expanded)]).
+               (Or [(lsdd_t, rsdd_t); (lsdd_f, false_expanded)]).*)
 
 (*
 The generated term containing the unsat branch:
@@ -200,7 +247,7 @@ The generated term containing the unsat branch:
     (((Atom (Var 1 true)) (Atom True)) ((Atom (Var 1 false)) (Atom False)))))
   ((Atom True) (Or (((Atom True) (Atom False)))))))
 *)
-Example sdd_of_var_ex0:
+(*Example sdd_of_var_ex0:
   sdd_of_var 2 (VNode (VAtom 1) (VNode (VAtom 2) (VAtom 3))) true
              (Or [(Atom ATrue,
                    (Or [(Atom (AVar 2 true), (Atom ATrue));
@@ -224,46 +271,29 @@ Proof.
   - apply ExpandFalseNode.
     + constructor.
     + constructor.
-Qed.
+Qed.*)
 
 Example ex_sdd_apply0:
-  sdd_apply OAnd (Or [(Atom ATrue, Atom AFalse)]) (Or [(Atom ATrue, Atom AFalse)]) (Or [(Atom ATrue, Atom AFalse)]).
+  sdd_apply OAnd
+            (Or ((Atom ATrue, Atom ATrue), (Atom ATrue, Atom AFalse)))
+            (Or ((Atom ATrue, Atom ATrue), (Atom ATrue, Atom AFalse)))
+            (Or ((Atom ATrue, Atom ATrue), (Atom ATrue, Atom AFalse))).
 Proof.
-  apply ApplyOr.
-  apply (NonEmptyLeft (Atom ATrue) (Atom AFalse) [] [(Atom ATrue, Atom AFalse)] _ _ OAnd).
-  repeat constructor.
-  - constructor.
-Qed.
-
+  apply ApplyOr. apply TwoSatA1B2. Admitted.
 
 Example ex_sdd_apply1:
   sdd_apply OAnd (Atom ATrue) (Atom AFalse) (Atom AFalse).
 Proof.
   apply ApplyAtom. constructor.
-  Qed.
+Qed.
 
 Example ex_sdd_apply2:
-  sdd_apply OAnd (Or [(Atom (AVar 0 true), Atom (AVar 1 true)); (Atom (AVar 0 false), Atom(AFalse))])
-            (Or [(Atom (AVar 0 true), Atom (AVar 1 true)); (Atom (AVar 0 false), Atom(AFalse))])
-            (Or [(Atom (AVar 0 true), Atom (AVar 1 true)); (Atom (AVar 0 false), Atom(AFalse))]).
+  sdd_apply OAnd
+            (Or ((Atom (AVar 0 true), Atom (AVar 1 true)), (Atom (AVar 0 false), Atom(AFalse))))
+            (Or ((Atom (AVar 0 true), Atom (AVar 1 true)), (Atom (AVar 0 false), Atom(AFalse))))
+            (Or ((Atom (AVar 0 true), Atom (AVar 1 true)), (Atom (AVar 0 false), Atom(AFalse)))).
 Proof.
-  constructor.
-  - apply (NonEmptyLeft (Atom (AVar 0 true)) (Atom (AVar 1 true)) [(Atom (AVar 0 false), Atom AFalse)]
-                        [(Atom (AVar 0 true), Atom (AVar 1 true))]).
-    + constructor.
-      * constructor. constructor.
-      * constructor.
-      * constructor. constructor.
-      * constructor.
-        { constructor. constructor. discriminate. }
-        { constructor. }
-    + apply (NonEmptyLeft (Atom (AVar 0 false)) (Atom AFalse) [] [(Atom (AVar 0 false), Atom AFalse)]).
-      * apply NonEmptyRightUnsat.
-        { constructor. constructor. discriminate. }
-        { constructor. constructor. constructor. constructor. constructor. constructor.}
-      * constructor.
-      * constructor. }
-      * constructor. 
+  constructor. constructor; constructor; constructor; discriminate.
 Qed.
 
 Example sdd_and_eq:
@@ -271,26 +301,20 @@ Example sdd_and_eq:
     sdd_vtree a v ->
     sdd_apply OAnd a a a.
 Proof.
-  intros.
-  destruct a.
-  induction H.
-  -  constructor. constructor.
-  -  constructor. constructor.
-  -  constructor. constructor.
-  -  constructor.
-     *  constructor.
-  - constructor. 
-    eapply (NonEmptyLeft prime sub tail [(prime, sub)] tail ((prime, sub) :: tail)).
-    * apply NonEmptyRightUnsat.
-      { Admitted. (*assumption. }
-      { discriminate. }*)
+  intros. destruct a. induction H.
+  - constructor. constructor. Admitted.
+(*  - constructor. constructor.
+  - constructor. constructor.
+  - constructor. apply TwoSatA1B2.
+    + assumption.
+    + Admitted.*) (*decomposability*)
 
 
 (* Apply preserves vtree consistency
   forall v sdd1 sdd2 sddRes, sdd_vtree sdd1 v → sdd_vtree sdd2 v → sdd_apply OAnd sdd1 sdd2 sddRes → sdd_vtree sddRes v.
 *)
 
-Inductive orList : list bool -> bool -> Prop :=
+(* Inductive orList : list bool -> bool -> Prop :=
 | OrListEmpty    : orList [] false
 | OrListNonEmpty : forall b bs rest, orList bs rest -> orList (b::bs) (orb b rest).
 
@@ -322,7 +346,7 @@ Proof.
     * apply SDDEvalATrue.
     * apply SDDEvalEmpty.
   - simpl. eapply (OrListNonEmpty true []). apply OrListEmpty. 
-Qed.
+Qed.*)
 
 (* Inductive compile *)
 
@@ -333,60 +357,20 @@ Ltac rewAndInvert :=
       rewrite <- H2 in H1; inversion H1
   end.
 
-Lemma single_list_right_empty :
-  forall o prime sub res, apply_single_list o prime sub [ ] res → res = [].
-Proof.
-  intros.  inversion H. reflexivity.
-Qed.
+Check sdd_ind.
 
-
-Lemma or_list_right_empty :
-  forall o l res, apply_or_list o l [] res → res = [].
-Proof. 
-  intros. generalize dependent res. induction l.
-  * intros. inversion H. reflexivity.
-  * intros. inversion H. apply IHl in H6.
-    apply single_list_right_empty in H3.
-    rewrite H3. rewrite H6. reflexivity.
-Qed.
-
-Section All.
-  Variable T : Set.
-  Variable P : T -> Prop.
-
-  Fixpoint All (ls : list T) : Prop :=
-    match ls with
-      | [] => True
-      | h::t => P h /\ All t
-    end.
-End All.
-
-Section AllPairs.
-  Variable T : Set.
-  Variable P : T → Prop.
-
-  Fixpoint AllPairs (ls : list (T*T)) : Prop :=
-    match ls with
-    | [] => True
-    | (a,b)::t => P a ∧ P b ∧ AllPairs t
-    end.
-End AllPairs.
-  
 Section sdd_ind'.
-  Variable P: sdd → Prop.
-  Hypothesis Or_case' : forall (l:list (sdd*sdd)), AllPairs sdd P l → P (Or l).
-  Hypothesis Atom_case' : forall (a:atom), P (Atom a).
+  Variable P : sdd -> Prop.
+  Hypothesis Or_case : forall p1 s1 p2 s2,
+      P p1 -> P p2 -> P s1 -> P s2 -> P (Or ((p1,s1),(p2,s2))).
+  Hypothesis Atom_case : forall a,  P (Atom a).
 
   Fixpoint sdd_ind' (s:sdd) : P s :=
-    let list_or_ind := (fix list_or_ind (l: list (sdd*sdd)) : (AllPairs sdd P l) :=
-           match l with
-           | [] => I
-           | (p,s)::rest => (conj (sdd_ind' p) (conj (sdd_ind' s) (list_or_ind rest)))
-           end)  in
     match s with
-    | Or l => Or_case' l (list_or_ind l)
-    | Atom a => Atom_case' a
-    end.
+    | Atom a => Atom_case a
+    | Or ((p1,s1),(p2,s2)) => Or_case p1 s1 p2 s2
+                                      (sdd_ind' p1) (sdd_ind' p2) (sdd_ind' s1) (sdd_ind' s2)
+   end.
 End sdd_ind'.
 
 Theorem apply_preserves_vtree :
@@ -395,15 +379,24 @@ Theorem apply_preserves_vtree :
     sdd_vtree sdd2 v →
     sdd_apply o sdd1 sdd2 sddRes →
     sdd_vtree sddRes v.
-  intros sdd1 sdd2 sddRes v o HSdd1 HSdd2 Happly.
+Proof.
   induction sdd1 using sdd_ind'; induction sdd2 using sdd_ind'.
-  - inversion HSdd1; inversion HSdd2.
-    * rewrite <- H2 in Happly. rewrite <- H4 in Happly.
-      inversion Happly. inversion H8. constructor.
-    * rewrite <- H2 in Happly.  inversion Happly. inversion H11. constructor.
-    * rewrite <- H7 in Happly. inversion Happly. apply or_list_right_empty in H11.
-      rewrite H11. constructor.
-    * Admitted.
+  - intros sddRes v o Hsdd1 Hsdd2 Happ.
+    inversion Happ. inversion H9.
+    + inversion Hsdd1; inversion Hsdd2. apply OrSingle.
+      * rewrite <- H43 in H34. inversion H34. rewrite <- H48 in H42. rewrite <- H48.
+        apply (IHsdd1_1 sdd2_1 pRes1 lvtree OAnd H33 H42 H22).
+      * 
+
+     
+      
+
+
+  - inversion Happ. rewrite <- H in Hsdd1. rewrite <- H1 in Hsdd2.
+    inversion Hsdd1. rewrite <- H9 in Hsdd1. rewrite <- H9 in Hsdd2.
+    constructor. inversion H2.
+    + 
+
 
 Theorem compile_correct :
   forall (boolExp:boolExpr) (sdd:sdd) (input:varAssign) (result:bool),
