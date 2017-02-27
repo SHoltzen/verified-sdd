@@ -84,7 +84,7 @@ Proof.
 Qed.
 
 
-Inductive atom_apply : op → atom → atom → atom → Prop ≔
+Inductive atom_apply : op → atom → atom → atom → Prop :=
 | AndTT : atom_apply OAnd ATrue ATrue ATrue
 | AndTF : atom_apply OAnd ATrue AFalse AFalse
 | AndFT : atom_apply OAnd AFalse ATrue AFalse
@@ -99,8 +99,8 @@ Inductive atom_apply : op → atom → atom → atom → Prop ≔
 
 
 Inductive sdd_apply : op -> sdd -> sdd -> sdd -> Prop :=
-| ApplyAtom : forall (a1:atom) (a2:atom) (a3:atom),
-    atom_apply op a1 a2 a3 → sdd_apply (Atom a1) (Atom a2) (Atom a3)
+| ApplyAtom : forall (a1:atom) (a2:atom) (a3:atom) (o:op),
+    atom_apply o a1 a2 a3 → sdd_apply o (Atom a1) (Atom a2) (Atom a3)
 | ApplyOr : forall (l1 l2 res: list (sdd*sdd)) (o : op),
     apply_or_list o l1 l2 res -> sdd_apply o (Or l1) (Or l2) (Or res)
 
@@ -239,7 +239,8 @@ Qed.
 Example ex_sdd_apply1:
   sdd_apply OAnd (Atom ATrue) (Atom AFalse) (Atom AFalse).
 Proof.
-  apply AtomAndTF. Qed.
+  apply ApplyAtom. constructor.
+  Qed.
 
 Example ex_sdd_apply2:
   sdd_apply OAnd (Or [(Atom (AVar 0 true), Atom (AVar 1 true)); (Atom (AVar 0 false), Atom(AFalse))])
@@ -250,17 +251,19 @@ Proof.
   - apply (NonEmptyLeft (Atom (AVar 0 true)) (Atom (AVar 1 true)) [(Atom (AVar 0 false), Atom AFalse)]
                         [(Atom (AVar 0 true), Atom (AVar 1 true))]).
     + constructor.
+      * constructor. constructor.
       * constructor.
+      * constructor. constructor.
       * constructor.
-      * constructor.
-      * constructor.
-        { constructor. discriminate. }
+        { constructor. constructor. discriminate. }
         { constructor. }
     + apply (NonEmptyLeft (Atom (AVar 0 false)) (Atom AFalse) [] [(Atom (AVar 0 false), Atom AFalse)]).
       * apply NonEmptyRightUnsat.
-        { constructor. discriminate. }
-        { constructor. constructor. constructor. constructor. constructor. }
+        { constructor. constructor. discriminate. }
+        { constructor. constructor. constructor. constructor. constructor. constructor.}
       * constructor.
+      * constructor. }
+      * constructor. 
 Qed.
 
 Example sdd_and_eq:
@@ -271,9 +274,9 @@ Proof.
   intros.
   destruct a.
   induction H.
-  -  constructor.
-  -  constructor.
-  -  constructor.
+  -  constructor. constructor.
+  -  constructor. constructor.
+  -  constructor. constructor.
   -  constructor.
      *  constructor.
   - constructor. 
@@ -330,14 +333,61 @@ Ltac rewAndInvert :=
       rewrite <- H2 in H1; inversion H1
   end.
 
+Lemma single_list_right_empty :
+  forall o prime sub res, apply_single_list o prime sub [ ] res → res = [].
+Proof.
+  intros.  inversion H. reflexivity.
+Qed.
 
-Ltac rewAndInvert ≔
-     match goal with
-     | [ H1: _ = ?x, H2: _ = ?x ⊢ _ ] ⇒ rewrite ← H2 in H1; inversion H1
-     end.
 
 Lemma or_list_right_empty :
   forall o l res, apply_or_list o l [] res → res = [].
+Proof. 
+  intros. generalize dependent res. induction l.
+  * intros. inversion H. reflexivity.
+  * intros. inversion H. apply IHl in H6.
+    apply single_list_right_empty in H3.
+    rewrite H3. rewrite H6. reflexivity.
+Qed.
+
+Section All.
+  Variable T : Set.
+  Variable P : T -> Prop.
+
+  Fixpoint All (ls : list T) : Prop :=
+    match ls with
+      | [] => True
+      | h::t => P h /\ All t
+    end.
+End All.
+
+Section AllPairs.
+  Variable T : Set.
+  Variable P : T → Prop.
+
+  Fixpoint AllPairs (ls : list (T*T)) : Prop :=
+    match ls with
+    | [] => True
+    | (a,b)::t => P a ∧ P b ∧ AllPairs t
+    end.
+End AllPairs.
+  
+Section sdd_ind'.
+  Variable P: sdd → Prop.
+  Hypothesis Or_case' : forall (l:list (sdd*sdd)), AllPairs sdd P l → P (Or l).
+  Hypothesis Atom_case' : forall (a:atom), P (Atom a).
+
+  Fixpoint sdd_ind' (s:sdd) : P s :=
+    let list_or_ind := (fix list_or_ind (l: list (sdd*sdd)) : (AllPairs sdd P l) :=
+           match l with
+           | [] => I
+           | (p,s)::rest => (conj (sdd_ind' p) (conj (sdd_ind' s) (list_or_ind rest)))
+           end)  in
+    match s with
+    | Or l => Or_case' l (list_or_ind l)
+    | Atom a => Atom_case' a
+    end.
+End sdd_ind'.
 
 Theorem apply_preserves_vtree :
   forall sdd1 sdd2 sddRes v o,
@@ -345,6 +395,15 @@ Theorem apply_preserves_vtree :
     sdd_vtree sdd2 v →
     sdd_apply o sdd1 sdd2 sddRes →
     sdd_vtree sddRes v.
+  intros sdd1 sdd2 sddRes v o HSdd1 HSdd2 Happly.
+  induction sdd1 using sdd_ind'; induction sdd2 using sdd_ind'.
+  - inversion HSdd1; inversion HSdd2.
+    * rewrite <- H2 in Happly. rewrite <- H4 in Happly.
+      inversion Happly. inversion H8. constructor.
+    * rewrite <- H2 in Happly.  inversion Happly. inversion H11. constructor.
+    * rewrite <- H7 in Happly. inversion Happly. apply or_list_right_empty in H11.
+      rewrite H11. constructor.
+    * Admitted.
 
 Theorem compile_correct :
   forall (boolExp:boolExpr) (sdd:sdd) (input:varAssign) (result:bool),
