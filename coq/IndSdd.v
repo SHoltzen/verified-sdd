@@ -448,19 +448,6 @@ Proof.
       * apply (IHl l0 orres o); repeat (inversion H; assumption).
 Qed.
 
-  (*  apply_or_list o ((p1, s1) :: l) ((p2, s2) :: l0) (singleres ++ orres) *)
-Lemma or_list_multi_vtree :
-  forall lvtree rvtree p1 s1 p2 s2 l l0 res o,
-    sdd_vtree p1 lvtree ->
-    sdd_vtree p2 lvtree ->
-    sdd_vtree s1 rvtree ->
-    sdd_vtree s2 rvtree ->
-    sdd_vtree (Or l) (VNode lvtree rvtree) ->
-    sdd_vtree (Or l0) (VNode lvtree rvtree) ->
-    apply_or_list o ((p1, s1)::l) ((p2, s2) :: l0) res ->
-    sdd_vtree (Or res) (VNode lvtree rvtree).
-Admitted.
-
 Theorem apply_preserves_vtree :
   forall sdd1 sdd2 sddRes v o,
     sdd_vtree sdd1 v →
