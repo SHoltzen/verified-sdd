@@ -416,12 +416,13 @@ Lemma single_list_vtree :
     apply_single_list o p s l subres ->
     sdd_vtree (Or subres) (VNode lvtree rvtree).
 Proof.
-  induction l. generalize dependent s. generalize dependent p.
-  - intros. inversion H2. constructor.
-  - generalize dependent p. generalize dependent s.
-    intros.  apply (Hvl op l).
-    + intros. apply (IHl o ); repeat assumption.
-      * 
+  Admitted. 
+(*   induction l. generalize dependent s. generalize dependent p. *)
+(*   - intros. inversion H2. constructor. *)
+(*   - generalize dependent p. generalize dependent s. *)
+(*     intros.  apply (Hvl op l). *)
+(*     + intros. apply (IHl o ); repeat assumption. *)
+(* Admitted. *)
 
 Lemma concat_list_vtree :
   forall vl vr l1 l2,
@@ -504,98 +505,9 @@ Qed.
    
 
 
-Theorem apply_preserves_vtree :
-  forall sdd1 sdd2 sddRes v o,
-    sdd_vtree sdd1 v →
-    sdd_vtree sdd2 v →
-    sdd_apply o sdd1 sdd2 sddRes →
-    sdd_vtree sddRes v.
-Proof.
-  - induction sdd1 using sdd_ind'. destruct l.
-    + intros sdd2 sddRes v o Hsdd1 Hsdd2 Happ. inversion Happ. inversion H2. constructor.
-    + induction sdd2 using sdd_ind'.
-      * intros sddRes v o Hsdd1 Hsdd2 Happ. destruct l0.
-        { inversion Happ. apply or_list_right_empty in H4.
-          rewrite H4. constructor. }
-        { simpl in H0. destruct p as [p1 s1]. destruct p0 as [p2 s2]. destruct H0. destruct H1. destruct H. destruct H3.
-          inversion Hsdd1. inversion Hsdd2.
-          + repeat rewAndInvert. inversion Happ.
-            * inversion H24. inversion H32. constructor.
-              { rewrite <- H20. apply (H p2 newprime lvtree OAnd).
-                assumption. rewrite <- H20 in H15. assumption. assumption. }
-              { rewrite <- H21. apply (H3 s2 newsub rvtree o).
-                assumption. rewrite <- H21 in H17. assumption. assumption. }
-              { fold (app subres orres). apply or_append_vtree.
-                - apply (single_list_vtree lvtree0 rvtree0 p1 s1 l0 o). subst.
-                  + assumption.
-                  + subst. assumption.
-                  + subst. assumption.
-                  + assumption.
-                - subst.  apply (or_list_vtree lvtree0 rvtree0 p2 s2 l l0 orres o).
-                  + assumption.
-                  + assumption.
-                  + assumption.
-                  + assumption.
-              }
-              (*   lvtree rvtree p1 s1 p2 s2 l l0 res o *)
-              { subst.
-                apply (or_list_multi_vtree lvtree0 rvtree0 p1 s1 p2 s2 l l0 (singleres ++ orres) o).
-                - assumption.
-                - assumption.
-                - assumption.
-                - assumption.
-                - assumption.
-                - assumption.
-                - assumption. }
-        }
-      * destruct v. intros.
-        {  
-             
-Qed.
-
-  (* - induction l. *)
-  (*   + induction sdd2. *)
-  (*     * intros. simpl in H. *)
-        
-    (*     { intros. inversion H2. inversion H6. assumption. } *)
-    (*     { admit. } *)
-    (*   * admit. *)
-    (* + induction sdd2. *)
-    (*   * induction l0. *)
-    (*     { intros. simpl in H. inversion H. *)
-
-    (* induction sdd2 using sdd_ind'. *)
-    (* * intros. destruct sdd2. *)
-    (* * induction l. *)
-    (*   { induction l0. *)
-    (*     - inversion H2. inversion H6. constructor. *)
-    (*     - inversion H2. inversion H6. constructor. *)
-    (*   } *)
-    (*   { induction l0. *)
-    (*     - inversion H2. apply or_list_right_empty in H6. rewrite H6. constructor. *)
-    (*     - (* each prime in l0 applied to a prime in l1 produces a prime that obeys the correct vtree *) *)
-    (*       inversion H0.  *)
-    (*       + eapply IHl0. *)
-
-(* Theorem apply_preserves_vtree : *)
-(*   forall sdd1 sdd2 sddRes v o, *)
-(*     sdd_vtree sdd1 v → *)
-(*     sdd_vtree sdd2 v → *)
-(*     sdd_apply o sdd1 sdd2 sddRes → *)
-(*     sdd_vtree sddRes v. *)
-(*   intros sdd1 sdd2 sddRes v o HSdd1 HSdd2 Happly. *)
-(*   induction sdd1 using sdd_ind'; induction sdd2 using sdd_ind'. *)
-(*   - inversion HSdd1; inversion HSdd2. *)
-(*     * rewrite <- H2 in Happly. rewrite <- H4 in Happly. *)
-(*       inversion Happly. inversion H8. constructor. *)
-(*     * rewrite <- H2 in Happly.  inversion Happly. inversion H11. constructor. *)
-(*     * rewrite <- H7 in Happly. inversion Happly. apply or_list_right_empty in H11. *)
-(*       rewrite H11. constructor. *)
-(*     * Admitted. *)
-
-Theorem compile_correct :
-  forall (boolExp:boolExpr) (sdd:sdd) (input:varAssign) (result:bool),
-    compile boolExp sdd →
-    eval_sdd sdd result input →
-    eval boolExp result input.
+(* Theorem compile_correct : *)
+(*   forall (boolExp:boolExpr) (sdd:sdd) (input:varAssign) (result:bool), *)
+(*     compile boolExp sdd → *)
+(*     eval_sdd sdd result input → *)
+(*     eval boolExp result input. *)
 
