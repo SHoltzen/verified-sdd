@@ -388,6 +388,122 @@ Section sdd_ind'.
 
 End sdd_ind'.
 
+
+Lemma or_append_vtree :
+  forall subres orres v,
+    sdd_vtree (Or subres) v ->
+    sdd_vtree (Or orres) v ->
+    sdd_vtree (Or (subres ++ orres)) v.
+Proof.
+  Admitted.
+
+Lemma append_list_vtree :
+  forall vl vr p s l,
+    sdd_vtree p vl ->
+    sdd_vtree s vr ->
+    sdd_vtree (Or l) (VNode vl vr) -> 
+    sdd_vtree (Or ((p, s)::l)) (VNode vl vr).
+Admitted.
+
+
+
+(* apply_single_list o p1 s1 l0 subres *)
+Lemma single_list_vtree :
+  forall lvtree rvtree p s l o subres,
+    sdd_vtree p lvtree ->
+    sdd_vtree s rvtree ->
+    sdd_vtree (Or l) (VNode lvtree rvtree) ->
+    apply_single_list o p s l subres ->
+    sdd_vtree (Or subres) (VNode lvtree rvtree).
+Proof.
+  induction l. generalize dependent s. generalize dependent p.
+  - intros. inversion H2. constructor.
+  - generalize dependent p. generalize dependent s.
+    intros.  apply (Hvl op l).
+    + intros. apply (IHl o ); repeat assumption.
+      * 
+
+Lemma concat_list_vtree :
+  forall vl vr l1 l2,
+    sdd_vtree (Or l1) (VNode vl vr) -> 
+    sdd_vtree (Or l2) (VNode vl vr) -> 
+    sdd_vtree (Or (l1 ++ l2)) (VNode vl vr).
+Admitted.
+
+(* apply_or_list o l ((p2, s2) :: l0) orres *)
+(* sdd_vtree (Or orres) (VNode lvtree0 rvtree0) *)
+Lemma or_list_vtree :
+  forall lvtree rvtree l l0 res o,
+    sdd_vtree (Or l) (VNode lvtree rvtree) ->
+    sdd_vtree (Or l0) (VNode lvtree rvtree) ->
+    apply_or_list o l l0 res ->
+    sdd_vtree (Or res) (VNode lvtree rvtree).
+Proof.
+  induction l.
+  - intros. inversion H1. constructor.
+  - intros. inversion H1. subst.
+    + apply concat_list_vtree.
+      * apply (single_list_vtree lvtree rvtree prime sub l0 o singleres); repeat (inversion H; assumption).
+      * apply (IHl l0 orres o); repeat (inversion H; assumption).
+Qed.
+
+  (*  apply_or_list o ((p1, s1) :: l) ((p2, s2) :: l0) (singleres ++ orres) *)
+Lemma or_list_multi_vtree :
+  forall lvtree rvtree p1 s1 p2 s2 l l0 res o,
+    sdd_vtree p1 lvtree ->
+    sdd_vtree p2 lvtree ->
+    sdd_vtree s1 rvtree ->
+    sdd_vtree s2 rvtree ->
+    sdd_vtree (Or l) (VNode lvtree rvtree) ->
+    sdd_vtree (Or l0) (VNode lvtree rvtree) ->
+    apply_or_list o ((p1, s1)::l) ((p2, s2) :: l0) res ->
+    sdd_vtree (Or res) (VNode lvtree rvtree).
+Admitted.
+
+Theorem apply_preserves_vtree :
+  forall sdd1 sdd2 sddRes v o,
+    sdd_vtree sdd1 v →
+    sdd_vtree sdd2 v →
+    sdd_apply o sdd1 sdd2 sddRes →
+    sdd_vtree sddRes v.
+Proof.
+  destruct v.
+  - intros. inversion H. subst.
+    + inversion H0.
+      * subst. inversion H1.
+        { subst. inversion H5. constructor. }
+      * subst. inversion H1.
+        { subst. inversion H8.
+          - subst.  constructor.
+        }
+    + subst. inversion H1. subst.
+      assert (sdd_vtree (Or ((prime, sub) :: tail)) (VNode v1 v2)).
+      { apply (append_list_vtree v1 v2 prime sub tail); repeat assumption. }
+      remember ((prime, sub) :: tail) as l.
+      eapply (or_list_vtree v1 v2 l l2 res o); repeat assumption.
+  - intros. inversion H.
+    + inversion H1.
+      * subst. inversion H3; repeat (subst; constructor).
+        { subst. discriminate H6. }
+        { subst. inversion H0. subst. constructor. }
+        { subst. discriminate H6. }
+      * subst. inversion H0. subst.  discriminate H6.
+    + subst. inversion H1. inversion H4.
+      * constructor.
+      * constructor.
+      * constructor.
+    + subst. inversion H0.
+      * inversion H1. subst. inversion H6; repeat constructor.
+      * subst. inversion H1. inversion H5. constructor.
+      * subst. destruct b.
+        { destruct b0; repeat (inversion H1; inversion H5; constructor). }
+        { destruct b0; repeat (inversion H1; inversion H5; constructor). }
+      * subst. inversion H1.
+    + subst. inversion H. inversion H1. inversion H5. constructor.
+Qed.
+   
+
+
 Theorem apply_preserves_vtree :
   forall sdd1 sdd2 sddRes v o,
     sdd_vtree sdd1 v →
@@ -404,7 +520,39 @@ Proof.
         { simpl in H0. destruct p as [p1 s1]. destruct p0 as [p2 s2]. destruct H0. destruct H1. destruct H. destruct H3.
           inversion Hsdd1. inversion Hsdd2.
           + repeat rewAndInvert. inversion Happ.
-            * inversion H24.
+            * inversion H24. inversion H32. constructor.
+              { rewrite <- H20. apply (H p2 newprime lvtree OAnd).
+                assumption. rewrite <- H20 in H15. assumption. assumption. }
+              { rewrite <- H21. apply (H3 s2 newsub rvtree o).
+                assumption. rewrite <- H21 in H17. assumption. assumption. }
+              { fold (app subres orres). apply or_append_vtree.
+                - apply (single_list_vtree lvtree0 rvtree0 p1 s1 l0 o). subst.
+                  + assumption.
+                  + subst. assumption.
+                  + subst. assumption.
+                  + assumption.
+                - subst.  apply (or_list_vtree lvtree0 rvtree0 p2 s2 l l0 orres o).
+                  + assumption.
+                  + assumption.
+                  + assumption.
+                  + assumption.
+              }
+              (*   lvtree rvtree p1 s1 p2 s2 l l0 res o *)
+              { subst.
+                apply (or_list_multi_vtree lvtree0 rvtree0 p1 s1 p2 s2 l l0 (singleres ++ orres) o).
+                - assumption.
+                - assumption.
+                - assumption.
+                - assumption.
+                - assumption.
+                - assumption.
+                - assumption. }
+        }
+      * destruct v. intros.
+        {  
+             
+Qed.
+
   (* - induction l. *)
   (*   + induction sdd2. *)
   (*     * intros. simpl in H. *)
