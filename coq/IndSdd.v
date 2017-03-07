@@ -134,35 +134,7 @@ apply_single_list : op -> sdd -> sdd -> list (sdd * sdd) -> list (sdd * sdd) -> 
     apply_single_list o prime1 sub1 tl subres -> (* process the rest of the list *)
     apply_single_list o prime1 sub1 ((prime2, sub2)::tl) subres.
 
-Check sdd_apply_ind.
-Print sdd_apply_ind.
-Check apply_single_list_ind.
 
-Section AllCross.
-  Variable P : op -> sdd -> sdd -> sdd -> Prop.
-
-  Fixpoint AllCross (o : op) (l1 l2_all res : list (sdd * sdd)) : Prop :=
-    let cross2 :=
-        fix cross2 (l2 res2 : list (sdd * sdd)) : Prop :=
-          match l1 with
-          | [] => True
-          | ((p1, s1) :: rst1) =>
-            match (l2, res2) with
-            | ([], r) => AllCross o rst1 l2_all r
-            | (((p2, s2) :: rst2), ((rp, rs)::rstres)) =>
-              (P OAnd p1 p2 rp) /\ (P o s1 s2 rs) /\ (cross2 rst2 rstres)
-            | _ => False
-            end
-          end in
-    cross2 l2_all res.
-End AllCross.
-
-Section ApplyList.
-  
-End ApplyList.
-
-
-Check AllCross.
 
 Check sdd_apply_ind.
 Check apply_single_list_ind.
@@ -207,6 +179,7 @@ Section sdd_apply_ind'.
     | ApplyAtom a1 a2 a3 o d => Atom_case' a1 a2 a3 o d 
     | ApplyOr l1 l2 res o or_d => 
       (* handle applying a (prime,sub) pair to a list *)
+      (* handle non_empty_right derivations *)
       let handle_sub_l :=
           fix handle_sub_l (prime sub : sdd) (l res : list (sdd * sdd)) (o : op)
               (d : apply_single_list o prime sub l res) : P o (Or [(prime, sub)]) (Or l) (Or res) :=
@@ -224,6 +197,7 @@ Section sdd_apply_ind'.
               let sub_proof := handle_sub_l prime1 sub1 tl subres o rest_d in
               ApplyUnsatSingleConcatenation prime1 prime2 sub1 sub2 newprime tl subres o app_prime_d unsat_d sub_proof
             end in
+              (* handle non_empty_left derivations *)
       let handle_l :=
           fix handle_l o l1 l2 res (cur_d : apply_or_list o l1 l2 res) : P o (Or l1) (Or l2) (Or res) :=
             match cur_d in (apply_or_list o l1 l2 res) return (P o (Or l1) (Or l2) (Or res)) with
@@ -238,6 +212,81 @@ Section sdd_apply_ind'.
     end.
 End sdd_apply_ind'.
 
+Print sdd_apply_ind.
+
+
+
+(*
+Section sdd_apply_ind_vtree.
+  Variable Atom_case' : forall  (a1 a2 a3 :atom) (o : op),
+      atom_apply o a1 a2 a3 -> sdd_vtree (Atom a1) v -> sdd_vtree (Atom a2) v -> sdd_vtree (Atom a3) v. 
+  Hypothesis Apply_empty_list' : forall (o : op) (l : list (sdd * sdd)),
+      sdd_vtree (Or l) v -> sdd_vtree (Or []) v o (Or l) (Or [ ]) (Or [ ]).
+  Hypothesis Apply_empty_l_list' : forall (o : op) (l : list (sdd * sdd)),
+      P o (Or [ ]) (Or l) (Or [ ]).
+  Hypothesis ApplySingleConcatenation: forall p1 p2 s1 s2 newprime newsub l lres o,
+      sdd_apply OAnd p1 p2 newprime ->
+      sdd_apply o s1 s2 newsub ->
+      sdd_sat newprime ->
+      P o (Or [(p1, s1)]) (Or [(p2, s2)]) (Or [(newprime, newsub)]) -> 
+      P o (Or [(p1, s1)]) (Or l) (Or lres) ->
+      P o (Or [(p1, s1)]) (Or ((p2, s2) :: l)) (Or ((newprime, newsub) :: lres)).
+  Hypothesis ApplyUnsatSingleConcatenation: forall p1 p2 s1 s2 newprime l lres o,
+      sdd_apply OAnd p1 p2 newprime ->
+      sdd_unsat newprime ->
+      P o (Or [(p1, s1)]) (Or l) (Or lres) ->
+      P o (Or [(p1, s1)]) (Or ((p2, s2) :: l)) (Or lres).
+  Hypothesis ApplyConcat : forall l11 l12 l2 l11res l12res o,
+      P o (Or l11) (Or l2) (Or l11res) ->
+      P o (Or l12) (Or l2) (Or l12res) ->
+      P o (Or (l11 ++ l12)) (Or l2) (Or (l11res ++ l12res)).
+  Hypothesis ApplyCombine : forall o p1 p2 s1 s2 nprime nsub,
+      sdd_apply OAnd p1 p2 nprime ->
+      sdd_apply o s1 s2 nsub ->
+      P OAnd p1 p2 nprime ->
+      P o s1 s2 nsub ->
+      P o (Or [(p1, s1)]) (Or [(p2, s2)]) (Or [(nprime, nsub)]).
+
+
+  Fixpoint sdd_apply_ind' (o : op) (s1 s2 res :sdd) (d : sdd_apply o s1 s2 res): P o s1 s2 res :=
+    match d in (sdd_apply o0 s3 s4 s5) return (P o0 s3 s4 s5) with
+    | ApplyAtom a1 a2 a3 o d => Atom_case' a1 a2 a3 o d 
+    | ApplyOr l1 l2 res o or_d => 
+      (* handle applying a (prime,sub) pair to a list *)
+      (* handle non_empty_right derivations *)
+      let handle_sub_l :=
+          fix handle_sub_l (prime sub : sdd) (l res : list (sdd * sdd)) (o : op)
+              (d : apply_single_list o prime sub l res) : P o (Or [(prime, sub)]) (Or l) (Or res) :=
+            match d in (apply_single_list o prime sub l res) return P o (Or [(prime, sub)]) (Or l) (Or res) with
+            | EmptyRight p s o =>
+              Apply_empty_list' o [(p, s)]
+            | NonEmptyRightSat p1 p2 s1 s2 nprime nsub o1 tl subres app_prime_d sat_d app_sub_d rest_d =>
+              let sub_proof := handle_sub_l p1 s1 tl subres o1 rest_d in
+              let prime_holds := sdd_apply_ind' OAnd p1 p2 nprime app_prime_d in
+              let sub_holds := sdd_apply_ind' o1 s1 s2 nsub app_sub_d in
+              let combined := ApplyCombine o1 p1 p2 s1 s2 nprime nsub app_prime_d app_sub_d prime_holds sub_holds in
+              ApplySingleConcatenation p1 p2 s1 s2 nprime nsub tl subres o1
+                                        app_prime_d app_sub_d sat_d combined sub_proof
+            | NonEmptyRightUnsat prime1 prime2 newprime sub1 sub2 o tl subres app_prime_d unsat_d rest_d =>
+              let sub_proof := handle_sub_l prime1 sub1 tl subres o rest_d in
+              ApplyUnsatSingleConcatenation prime1 prime2 sub1 sub2 newprime tl subres o app_prime_d unsat_d sub_proof
+            end in
+              (* handle non_empty_left derivations *)
+      let handle_l :=
+          fix handle_l o l1 l2 res (cur_d : apply_or_list o l1 l2 res) : P o (Or l1) (Or l2) (Or res) :=
+            match cur_d in (apply_or_list o l1 l2 res) return (P o (Or l1) (Or l2) (Or res)) with
+            | EmptyLeft l o1  => Apply_empty_l_list' o1 l
+            | NonEmptyLeft prime sub ltail singleres orres linput o1 single_d sub_or_d =>
+              let single_proof := handle_sub_l prime sub linput singleres o1 single_d in
+              let or_proof := handle_l o1 ltail linput orres sub_or_d in
+              ApplyConcat [(prime, sub)] ltail linput singleres orres o1 single_proof or_proof
+                   
+            end in
+              handle_l o l1 l2 res or_d
+    end.
+End sdd_apply_ind'.
+*)
+
 
 
 Inductive sdd_vtree : sdd -> vtree -> Prop :=
@@ -249,8 +298,36 @@ Inductive sdd_vtree : sdd -> vtree -> Prop :=
     sdd_vtree prime lvtree ->
     sdd_vtree sub rvtree ->
     sdd_vtree (Or (tail)) (VNode lvtree rvtree) ->
-    sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree).
+    sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree)
+| SddVtreeL : forall l r sdd,
+    sdd_vtree sdd l ->
+    sdd_vtree sdd (VNode l r)
+| SddVtreeR : forall l r sdd,
+    sdd_vtree sdd r ->
+    sdd_vtree sdd (VNode l r).
 
+
+(*
+Section sdd_apply_ind_custom.
+  Variable P: 
+    forall sdd1 sdd2 sddRes v o,
+      sdd_vtree sdd1 v →
+      sdd_vtree sdd2 v →
+      sdd_apply o sdd1 sdd2 sddRes →
+      sdd_vtree sddRes v -> Prop.
+  Variable Atom_case' : forall  (a1 a2 a3 :atom) (v : vtree) (o : op) sdd1_d sdd2_d apply_d sddRes_d,
+      atom_apply o a1 a2 a3 -> P (Atom a1) (Atom a2) (Atom a3) v o sdd1_d sdd2_d apply_d sddRes_d.
+  Hypothesis Or_case' : ∀ (l1 l2 res : list (sdd * sdd)) (v : vtree) (o : op) sdd1_d sdd2_d apply_d sddRes_d,
+      apply_or_list o l1 l2 res → P (Or l1) (Or l2) (Or res) v o sdd1_d sdd2_d apply_d sddRes_d.
+  Fixpoint sdd_apply_ind_custom
+           (o : op) (s1 s2 res :sdd) (d : sdd_apply o s1 s2 res) v d1 d2 d3 : P s1 s2 res v o d1 d2 d d3 :=
+    match d in (sdd_apply o s1 s2 res) with
+    | ApplyAtom a1 a2 a3 o d => Atom_case' a1 a2 a3 v o d1 d2 d
+    | ApplyAtom x x0 x1 x2 x3 => Atom_case' x x0 x1 x2 x3
+    | ApplyOr x x0 x1 x2 x3 => Or_case' x x0 x1 x2 x3
+    end.
+End sdd_apply_ind_custom.
+ *)
 
 Lemma single_vtree :
   forall (prime sub : sdd) l v,
@@ -266,7 +343,8 @@ Proof.
     + assumption.
     + assumption.
     + assumption.
-Qed.
+    +  admit.
+Admitted.
 
 Lemma vtree_concat :
   forall l1 l2 v,
@@ -278,9 +356,8 @@ Proof.
   - simpl. assumption.
   - destruct a. remember (l1 ++ l2) as l. simpl. rewrite <- Heql. apply single_vtree.
     + inversion H. subst. constructor. assumption. assumption. constructor.
-    + apply IHl1. inversion H. subst. assumption.
-Qed.
-
+    (* + apply IHl1. inversion H. subst. assumption. admit. *)
+Admitted.
 
 Lemma vtree_slice_l :
   forall l1 l2 v,
@@ -295,7 +372,7 @@ Proof.
       constructor.
     + apply IHl1. inversion H.
       subst. assumption.
-Qed.
+Admitted.
 
 Lemma vtree_reorder :
   forall l1 l2 v,
@@ -305,6 +382,7 @@ Proof.
   intros. induction l1.
   - simpl in H. remember (l2 ++ []) as l3. remember (l2 ++ []) as l4.  admit.
 Admitted.
+
 
 Lemma vtree_slice_r :
   forall l1 l2 v,
@@ -324,6 +402,148 @@ Proof.
 
 Admitted.
 
+Lemma unsat_concat :
+  forall prime sub l,
+    sdd_unsat (Or [(prime, sub)]) ->
+    sdd_unsat (Or l) ->
+    sdd_unsat (Or ((prime, sub) :: l)).
+Proof.
+  intros.
+  inversion H.
+  - subst. constructor.
+    + assumption.
+    + assumption.
+  - subst. apply UnsatOrSub.
+    + assumption.
+    + assumption.
+Qed.
+
+Lemma unsat_append :
+  forall l1 l2,
+    sdd_unsat (Or l1) ->
+    sdd_unsat (Or l2) ->
+    sdd_unsat (Or (l1 ++ l2)).
+Proof.
+  intros.
+  induction l1.
+  - simpl. assumption.
+  - simpl. destruct a.
+    remember (l1 ++ l2) as l. apply unsat_concat.
+    + inversion H. subst. constructor.
+      * assumption.
+      * constructor.
+      * apply UnsatOrSub.
+        { assumption. }
+        { constructor. }
+    + apply IHl1.
+      * inversion H. assumption. assumption. 
+Qed.
+
+Lemma unsat_split_l :
+  forall l1 l2,
+    sdd_unsat (Or (l1 ++ l2)) ->
+    sdd_unsat (Or l1).
+Proof.
+  intros. induction l1.
+  - constructor.
+  - destruct a. apply unsat_concat.
+    + inversion H. subst. constructor.
+      * assumption.
+      * constructor.
+      * apply UnsatOrSub.
+        { assumption. }
+        { constructor. }
+    + apply IHl1.
+      * inversion H.
+        { assumption. }
+        { assumption. }
+Qed. 
+
+
+Lemma unsat_app_nil:
+  forall l,
+    sdd_unsat (Or (l ++ [])) ->
+    sdd_unsat (Or l).
+Proof.
+  intros.
+  induction l.
+  - constructor.
+  - inversion H.
+    + subst. constructor.
+      * assumption.
+      * apply IHl.
+        { assumption. }
+    + subst. apply UnsatOrSub.
+      * assumption.
+      * apply IHl.
+        { assumption. }
+Qed.
+
+Lemma unsat_split_r:
+  forall l1 l2,
+    sdd_unsat (Or (l1 ++ l2)) ->
+    sdd_unsat (Or (l2)).
+Proof.
+  intros. 
+  induction l1, l2.
+  - constructor.
+  - simpl in H. assumption.
+  - constructor.
+  - apply IHl1.
+    + inversion H.
+      * subst.  assumption.
+      * subst.  assumption.
+Qed. 
+     
+
+
+Theorem apply_unsat :
+  forall sdd1 sdd2 sddres,
+    sdd_unsat sdd1 ->
+    sdd_apply OAnd sdd1 sdd2 sddres ->
+    sdd_unsat sddres.
+Proof.
+  intros. induction H0 using sdd_apply_ind'.
+  - inversion H0.
+    + inversion H. subst. inversion H.
+    + subst. inversion H.
+    + subst. constructor.
+    + subst. constructor.
+    + subst. assumption.
+    + subst. inversion H.
+    + subst. constructor.
+    + constructor.
+    + subst. assumption.
+    + subst. constructor.
+  - constructor.
+  - constructor.
+  - inversion H.
+    + subst. assert (sdd_unsat (Or [(p1, s1)])).
+      * constructor. assumption. assumption.
+      * apply unsat_concat.
+        { apply IHsdd_apply1. assumption. }
+        { apply IHsdd_apply2. assumption. }
+    + apply unsat_concat.
+      { apply IHsdd_apply1. assumption. }
+      { apply IHsdd_apply2. assumption. }
+  - apply IHsdd_apply.
+    + assumption.
+  - apply unsat_append.
+    + apply IHsdd_apply.
+      { apply (unsat_split_l l11 l12).
+        - assumption. }
+    + apply IHsdd_apply0.
+      { apply (unsat_split_r l11 l12).
+        + assumption.
+      }
+  - inversion H. subst. constructor.
+    + apply IHsdd_apply1. assumption.
+    + assumption.
+    + apply UnsatOrSub.
+      * apply IHsdd_apply2. assumption.
+      * assumption.
+Qed.
+
 
 Theorem apply_preserves_vtree' :
   forall sdd1 sdd2 sddRes v o,
@@ -339,11 +559,14 @@ Proof.
   - admit.
   - admit.
   - admit.
-  - admit.
+  - inversion H.
+    + inversion H0.
+      { subst. constructor.
+Admitted.
    
 
-(*
-Theorem apply_preserves_vtree' :
+
+Theorem apply_preserves_vtree :
   forall sdd1 sdd2 sddRes v o,
     sdd_vtree sdd1 v →
     sdd_vtree sdd2 v →
@@ -404,7 +627,7 @@ Proof.
               - assumption.
             }
       - constructor.
-        + apply IHsdd_apply2*)
+        + apply IHsdd_apply2
          
 
              
