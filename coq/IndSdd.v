@@ -40,7 +40,9 @@ Qed.
 
 Inductive vtree_correct : vtree -> Prop :=
 | vtree_correct_atom : forall n, vtree_correct (VAtom n)
-| vtree_correct_node : forall l r lSet rSet, vtree_varSet l lSet ->
+| vtree_correct_node : forall l r lSet rSet, vtree_correct l ->
+                                             vtree_correct r ->
+                                             vtree_varSet l lSet ->
                                              vtree_varSet r rSet ->
                                              disjoint lSet rSet ->
                                              vtree_correct (VNode l r).
@@ -50,10 +52,33 @@ Inductive atom : Type :=
 | ATrue : atom
 | AVar :  nat -> bool -> atom.
 
+Inductive atom_varSet : atom -> varSet -> Prop :=
+| atom_varSet_false : atom_varSet AFalse Empty
+| atom_varSet_true  : atom_varSet ATrue Empty
+| atom_varSet_var   : forall n b, atom_varSet (AVar n b) (Var n Empty).
+
+
 Inductive sdd : Type :=
           (*prime sub   next *)
 | Or: list (sdd * sdd) -> sdd
 | Atom : atom -> sdd.
+
+Inductive
+
+sdd_varSet : sdd -> varSet -> Prop :=
+| sdd_varSet_atom : forall a vs, atom_varSet a vs -> sdd_varSet (Atom a) vs
+| sdd_varSet_or   : forall l vs, sddList_varSet l vs -> sdd_varSet (Or l) vs
+
+with
+
+sddList_varSet : list (sdd*sdd) -> varSet -> Prop :=
+| sddList_varSet_empty : sddList_varSet [] Empty
+| sddList_varSet_pair  : forall p s rest pVs sVs rVs pairVs resVs, sdd_varSet p pVs ->
+                                                                   sdd_varSet s sVs ->
+                                                                   sddList_varSet rest rVs ->
+                                                                   union pVs sVs pairVs ->
+                                                                   union pairVs rVs resVs ->
+                                                                   sddList_varSet ((p, s)::rest) resVs.
 
 Inductive op : Type :=
 | OAnd.
@@ -314,17 +339,20 @@ Inductive sdd_vtree : sdd -> vtree -> Prop :=
 | AtomTrue : forall n, sdd_vtree (Atom ATrue) (VAtom n)
 | AtomFalse : forall n, sdd_vtree (Atom AFalse) (VAtom n)
 | AtomVar : forall n b, sdd_vtree (Atom (AVar n b)) (VAtom n)
-| OrEmpty : forall v, sdd_vtree (Or []) v
+| OrEmpty : forall v, vtree_correct v -> sdd_vtree (Or []) v
 | OrSingle: forall prime sub lvtree rvtree tail, 
     sdd_vtree prime lvtree ->
     sdd_vtree sub rvtree ->
     sdd_vtree (Or (tail)) (VNode lvtree rvtree) ->
+    vtree_correct (VNode lvtree rvtree) ->
     sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree)
 | ExtendL : forall l r sdd,
     sdd_vtree sdd l ->
+    vtree_correct (VNode l r) ->
     sdd_vtree sdd (VNode l r)
 | ExtendR : forall l r sdd,
     sdd_vtree sdd r ->
+    vtree_correct (VNode l r) ->
     sdd_vtree sdd (VNode l r).
 
 
@@ -364,14 +392,14 @@ Lemma vtree_slice_l :
     sdd_vtree (Or l1) v.
 Proof.
   intros. induction l1.
-  - constructor.
-  - inversion H. subst.
+  - constructor. Admitted.
+(*  - inversion H. subst.
     apply single_vtree.
     + constructor. assumption. assumption.
       constructor.
     + apply IHl1. inversion H.
       subst. assumption.
-Admitted.
+Admitted. *)
 
 Lemma vtree_reorder :
   forall l1 l2 v,
@@ -389,7 +417,7 @@ Lemma vtree_slice_r :
     sdd_vtree (Or l2) v.
 Proof.
   intros. induction l2.
-  - constructor.
+  - constructor. Admitted. (*
   - destruct a. apply single_vtree.
     + inversion H.
       * symmetry in H1. apply app_eq_nil in H1. inversion H1. inversion H3.
@@ -399,7 +427,7 @@ Proof.
           - inversion H.  subst. 
 
 
-Admitted.
+Admitted.*)
 
 Lemma unsat_concat :
   forall prime sub l,
@@ -524,6 +552,29 @@ Proof.
         try apply IHsdd_apply2;
         assumption.
 Qed.
+
+
+Inductive
+
+decomposable : sdd -> Prop :=
+| decomposable_atom : forall a, decomposable (Atom a)
+| decomposable_or : forall l, decomposable_pairs l -> decomposable (Or l)
+
+with
+
+decomposable_pairs : list (sdd*sdd) -> Prop :=
+| decomposable_pairs_empty : decomposable_pairs []
+| decomposable_pairs_pair  : forall p s rest pVs sVs, sdd_varSet p pVs ->
+                                                      sdd_varSet s sVs ->
+                                                      disjoint pVs sVs ->
+                                                      decomposable_pairs rest ->
+                                                      decomposable_pairs ((p, s)::rest).
+
+Theorem sdd_decomposable :
+  forall sdd v,
+    sdd_vtree sdd v ->
+    decomposable sdd.
+Admitted.
 
 (* ---------------------------- *)
 Example sdd_vtree_ex0:
