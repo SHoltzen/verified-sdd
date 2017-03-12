@@ -2,7 +2,7 @@ Require Export Bool.Bool.
 Require Export List.
 Require Export Coq.Unicode.Utf8_core.
 
-Require Import VarAssign.
+Require Import VarSet.
 
 
 Notation "x :: l" := (cons x l)
@@ -21,6 +21,22 @@ Inductive boolExpr : Type :=
 Inductive vtree : Type :=
 | VNode : vtree -> vtree -> vtree
 | VAtom : nat -> vtree.
+
+Inductive vtree_varSet : vtree -> varSet -> Prop :=
+| vtree_varSet_atom : forall n, vtree_varSet (VAtom n) (Var n Empty)
+| vtree_varSet_node : forall l r lSet rSet resSet, vtree_varSet l lSet ->
+                                                   vtree_varSet r rSet ->
+                                                   union lSet rSet resSet ->
+                                                   vtree_varSet (VNode l r) resSet.
+
+Theorem vtree_varSet_unique :
+  forall v vs, vtree_varSet v vs -> unique vs.
+Proof.
+  intros v vs Hv.
+  induction Hv.
+  - repeat constructor.
+  - apply (union_unique lSet rSet); assumption.
+Qed.
 
 Inductive atom : Type :=
 | AFalse : atom
@@ -214,8 +230,6 @@ End sdd_apply_ind'.
 
 Print sdd_apply_ind.
 
-
-
 (*
 Section sdd_apply_ind_vtree.
   Variable Atom_case' : forall  (a1 a2 a3 :atom) (o : op),
@@ -299,35 +313,13 @@ Inductive sdd_vtree : sdd -> vtree -> Prop :=
     sdd_vtree sub rvtree ->
     sdd_vtree (Or (tail)) (VNode lvtree rvtree) ->
     sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree)
-| SddVtreeL : forall l r sdd,
+| ExtendL : forall l r sdd,
     sdd_vtree sdd l ->
     sdd_vtree sdd (VNode l r)
-| SddVtreeR : forall l r sdd,
+| ExtendR : forall l r sdd,
     sdd_vtree sdd r ->
     sdd_vtree sdd (VNode l r).
 
-
-(*
-Section sdd_apply_ind_custom.
-  Variable P: 
-    forall sdd1 sdd2 sddRes v o,
-      sdd_vtree sdd1 v →
-      sdd_vtree sdd2 v →
-      sdd_apply o sdd1 sdd2 sddRes →
-      sdd_vtree sddRes v -> Prop.
-  Variable Atom_case' : forall  (a1 a2 a3 :atom) (v : vtree) (o : op) sdd1_d sdd2_d apply_d sddRes_d,
-      atom_apply o a1 a2 a3 -> P (Atom a1) (Atom a2) (Atom a3) v o sdd1_d sdd2_d apply_d sddRes_d.
-  Hypothesis Or_case' : ∀ (l1 l2 res : list (sdd * sdd)) (v : vtree) (o : op) sdd1_d sdd2_d apply_d sddRes_d,
-      apply_or_list o l1 l2 res → P (Or l1) (Or l2) (Or res) v o sdd1_d sdd2_d apply_d sddRes_d.
-  Fixpoint sdd_apply_ind_custom
-           (o : op) (s1 s2 res :sdd) (d : sdd_apply o s1 s2 res) v d1 d2 d3 : P s1 s2 res v o d1 d2 d d3 :=
-    match d in (sdd_apply o s1 s2 res) with
-    | ApplyAtom a1 a2 a3 o d => Atom_case' a1 a2 a3 v o d1 d2 d
-    | ApplyAtom x x0 x1 x2 x3 => Atom_case' x x0 x1 x2 x3
-    | ApplyOr x x0 x1 x2 x3 => Or_case' x x0 x1 x2 x3
-    end.
-End sdd_apply_ind_custom.
- *)
 
 Lemma single_vtree :
   forall (prime sub : sdd) l v,
@@ -526,101 +518,7 @@ Proof.
         assumption.
 Qed.
 
-
-Theorem apply_preserves_vtree' :
-  forall sdd1 sdd2 sddRes v o,
-    sdd_vtree sdd1 v →
-    sdd_vtree sdd2 v →
-    sdd_apply o sdd1 sdd2 sddRes →
-    sdd_vtree sddRes v.
-Proof.
-  intros. induction H1 using sdd_apply_ind'.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - inversion H.
-    + inversion H0.
-      { subst. constructor.
-Admitted.
-   
-
-
-Theorem apply_preserves_vtree :
-  forall sdd1 sdd2 sddRes v o,
-    sdd_vtree sdd1 v →
-    sdd_vtree sdd2 v →
-    sdd_apply o sdd1 sdd2 sddRes →
-    sdd_vtree sddRes v.
-Proof.
-  intros. inversion H.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - inversion H0.
-    { induction H1.
-      - admit.
-      - admit.
-    }
-    {
-      induction H1.
-      - inversion H5.
-      - inversion H7.
-    }
-    {
-      induction H1.
-      - subst. inversion H5.
-      - subst. inversion H7.
-    }
-    {
-      subst.
-      admit.
-    }
-    {
-      subst. induction H1 using sdd_apply_ind'.
-      - inversion H0.
-      - assumption.
-      - assumption.
-      - inversion H0.
-        apply single_vtree.
-        + apply IHsdd_apply1. subst. constructor. assumption. assumption. constructor.
-          assumption.
-        + apply IHsdd_apply2. assumption. assumption.
-      - apply IHsdd_apply.
-        + inversion H0. subst. assumption.
-        + assumption.
-      - apply vtree_concat.
-        + apply IHsdd_apply. assumption.
-          { inversion H.
-            - subst. assert (l11 = []).
-              + symmetry in H5. apply app_eq_nil in H5. inversion H5. assumption.
-              + subst. constructor.
-            - subst. apply (vtree_slice_l l11 l12).
-              + assumption.
-          }
-        + apply IHsdd_apply0.
-          * assumption.
-          * inversion H.
-            { symmetry in H5. apply app_eq_nil in H5. inversion H5. subst. constructor. }
-            { apply (vtree_slice_r l11 l12).
-              - assumption.
-            }
-      - constructor.
-        + apply IHsdd_apply2
-         
-
-             
-
-
-           
-           
-
-        
-Qed.
-
+(* ---------------------------- *)
 Example sdd_vtree_ex0:
   sdd_vtree (Or [(Atom (AVar 0 true), Atom (AVar 1 false))]) (VNode (VAtom 0) (VAtom 1)).
 Proof.
