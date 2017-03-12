@@ -63,6 +63,36 @@ Inductive sdd : Type :=
 | Or: list (sdd * sdd) -> sdd
 | Atom : atom -> sdd.
 
+Section AllPairs.
+  Variable T : Set.
+  Variable P : T → Prop.
+
+  Fixpoint AllPairs (ls : list (T*T)) : Prop :=
+    match ls with
+    | [] => True
+    | (a,b)::t => P a ∧ P b ∧ AllPairs t
+    end.
+End AllPairs.
+  
+Section sdd_ind'.
+  Variable P: sdd → Prop.
+  Hypothesis Or_case' : forall (l:list (sdd*sdd)), AllPairs sdd P l → P (Or l).
+  Hypothesis Atom_case' : forall (a:atom), P (Atom a).
+
+    Fixpoint sdd_ind' (s:sdd) : P s :=
+    let list_or_ind := (fix list_or_ind (l: list (sdd*sdd)) : (AllPairs sdd P l) :=
+           match l with
+           | [] => I
+           | (p,s)::rest => (conj (sdd_ind' p) (conj (sdd_ind' s) (list_or_ind rest)))
+           end)  in
+    match s with
+    | Or l => Or_case' l (list_or_ind l)
+    | Atom a => Atom_case' a
+    end.
+
+End sdd_ind'.
+
+
 Inductive
 
 sdd_varSet : sdd -> varSet -> Prop :=
@@ -339,22 +369,18 @@ Inductive sdd_vtree : sdd -> vtree -> Prop :=
 | AtomTrue : forall n, sdd_vtree (Atom ATrue) (VAtom n)
 | AtomFalse : forall n, sdd_vtree (Atom AFalse) (VAtom n)
 | AtomVar : forall n b, sdd_vtree (Atom (AVar n b)) (VAtom n)
-| OrEmpty : forall v, vtree_correct v -> sdd_vtree (Or []) v
+| OrEmpty : forall v, sdd_vtree (Or []) v
 | OrSingle: forall prime sub lvtree rvtree tail, 
     sdd_vtree prime lvtree ->
     sdd_vtree sub rvtree ->
     sdd_vtree (Or (tail)) (VNode lvtree rvtree) ->
-    vtree_correct (VNode lvtree rvtree) ->
     sdd_vtree (Or ((prime, sub) :: tail)) (VNode lvtree rvtree)
 | ExtendL : forall l r sdd,
     sdd_vtree sdd l ->
-    vtree_correct (VNode l r) ->
     sdd_vtree sdd (VNode l r)
 | ExtendR : forall l r sdd,
     sdd_vtree sdd r ->
-    vtree_correct (VNode l r) ->
     sdd_vtree sdd (VNode l r).
-
 
 Lemma single_vtree :
   forall (prime sub : sdd) l v,
@@ -564,17 +590,60 @@ with
 
 decomposable_pairs : list (sdd*sdd) -> Prop :=
 | decomposable_pairs_empty : decomposable_pairs []
-| decomposable_pairs_pair  : forall p s rest pVs sVs, sdd_varSet p pVs ->
+| decomposable_pairs_pair_sdd  : forall p s rest pVs sVs, sdd_varSet p pVs ->
                                                       sdd_varSet s sVs ->
                                                       disjoint pVs sVs ->
                                                       decomposable_pairs rest ->
-                                                      decomposable_pairs ((p, s)::rest).
+                                                      decomposable_pairs ((p, s)::rest)
+| decomposable_pairs_pair_vt   : forall p s rest pV sV pVs sVs,
+                                        sdd_vtree p pV ->
+                                        vtree_varSet pV pVs ->
+                                        sdd_vtree s sV ->
+                                        vtree_varSet sV sVs ->
+                                        disjoint pVs sVs ->
+                                        decomposable_pairs rest ->
+                                        decomposable_pairs ((p, s)::rest).
+
+Theorem sdd_vtree_vars :
+  forall sdd v vs1 vs2,
+    sdd_vtree sdd v ->
+    vtree_varSet v vs1 ->
+    sdd_varSet sdd vs2 ->
+    subset vs2 vs1.
+Proof.
+  intros sdd0 v vs1 vs2 H_sdd0_v Hv Hsdd.
+  induction H_sdd0_v; try (inversion Hv; inversion Hsdd; inversion H2; subst; repeat constructor).
+  - inversion H5. constructor.
+  - Admitted.
 
 Theorem sdd_decomposable :
   forall sdd v,
     sdd_vtree sdd v ->
+    vtree_correct v ->
     decomposable sdd.
-Admitted.
+Proof.
+  intros sdd0 v Hsdd0 Hv.
+  induction Hsdd0; repeat constructor.
+  - inversion Hv. subst.
+    apply IHHsdd0_1 in H1.
+    apply IHHsdd0_2 in H2.
+    apply IHHsdd0_3 in Hv.
+    eapply decomposable_pairs_pair_vt.
+    + instantiate (1 := lvtree). assumption.
+    + instantiate (1 := lSet). assumption.
+    + instantiate (1 := rvtree). assumption.
+    + instantiate (1 := rSet). assumption.
+    + assumption.
+    + inversion Hv. assumption.
+  - inversion Hv. subst. apply IHHsdd0. assumption.
+  - inversion Hv. subst. apply IHHsdd0. assumption.
+Qed.
+
+    apply IHHsdd0_3 in Hv.
+
+    inversion Hv. subst.
+    eapply decomposable_pairs_pair.
+
 
 (* ---------------------------- *)
 Example sdd_vtree_ex0:
@@ -792,34 +861,6 @@ Section All.
     end.
 End All.
 
-Section AllPairs.
-  Variable T : Set.
-  Variable P : T → Prop.
-
-  Fixpoint AllPairs (ls : list (T*T)) : Prop :=
-    match ls with
-    | [] => True
-    | (a,b)::t => P a ∧ P b ∧ AllPairs t
-    end.
-End AllPairs.
-  
-Section sdd_ind'.
-  Variable P: sdd → Prop.
-  Hypothesis Or_case' : forall (l:list (sdd*sdd)), AllPairs sdd P l → P (Or l).
-  Hypothesis Atom_case' : forall (a:atom), P (Atom a).
-
-    Fixpoint sdd_ind' (s:sdd) : P s :=
-    let list_or_ind := (fix list_or_ind (l: list (sdd*sdd)) : (AllPairs sdd P l) :=
-           match l with
-           | [] => I
-           | (p,s)::rest => (conj (sdd_ind' p) (conj (sdd_ind' s) (list_or_ind rest)))
-           end)  in
-    match s with
-    | Or l => Or_case' l (list_or_ind l)
-    | Atom a => Atom_case' a
-    end.
-
-End sdd_ind'.
 
 
 Lemma or_append_vtree :

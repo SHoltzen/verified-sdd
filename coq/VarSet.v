@@ -75,4 +75,12 @@ Inductive disjoint : varSet -> varSet -> Prop :=
                                      disjoint rest vs ->
                                      disjoint (Var n rest) vs.
 
+Inductive subset : varSet -> varSet -> Prop :=
+| subset_empty : forall vs, subset Empty vs
+| subset_var   : forall n rest vs, member vs n ->
+                                   subset rest vs ->
+                                   subset (Var n rest) vs.
+
+Inductive equal : varSet -> varSet -> Prop :=
+| equal_ : forall vs1 vs2, subset vs1 vs2 -> subset vs2 vs1 -> equal vs1 vs2.
 
