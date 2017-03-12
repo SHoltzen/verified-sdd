@@ -67,4 +67,12 @@ Proof.
     + inversion H; subst.
       * assumption.
       * constructor. assumption. assumption.
-Qed. 
+Qed.
+
+Inductive disjoint : varSet -> varSet -> Prop :=
+| disjoint_empty : forall vs, disjoint Empty vs
+| disjoint_var   : forall n rest vs, notMember vs n ->
+                                     disjoint rest vs ->
+                                     disjoint (Var n rest) vs.
+
+

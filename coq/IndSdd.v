@@ -38,6 +38,13 @@ Proof.
   - apply (union_unique lSet rSet); assumption.
 Qed.
 
+Inductive vtree_correct : vtree -> Prop :=
+| vtree_correct_atom : forall n, vtree_correct (VAtom n)
+| vtree_correct_node : forall l r lSet rSet, vtree_varSet l lSet ->
+                                             vtree_varSet r rSet ->
+                                             disjoint lSet rSet ->
+                                             vtree_correct (VNode l r).
+
 Inductive atom : Type :=
 | AFalse : atom
 | ATrue : atom
