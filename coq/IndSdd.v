@@ -504,44 +504,26 @@ Theorem apply_unsat :
     sdd_unsat sddres.
 Proof.
   intros. induction H0 using sdd_apply_ind'.
-  - inversion H0.
-    + inversion H. subst. inversion H.
-    + subst. inversion H.
-    + subst. constructor.
-    + subst. constructor.
-    + subst. assumption.
-    + subst. inversion H.
-    + subst. constructor.
-    + constructor.
-    + subst. assumption.
-    + subst. constructor.
+  - inversion H0;
+      try (inversion H; subst; inversion H);
+      try (subst; inversion H);
+      try (subst; constructor);
+      try (subst; assumption).
   - constructor.
   - constructor.
-  - inversion H.
-    + subst. assert (sdd_unsat (Or [(p1, s1)])).
-      * constructor. assumption. assumption.
-      * apply unsat_concat.
-        { apply IHsdd_apply1. assumption. }
-        { apply IHsdd_apply2. assumption. }
-    + apply unsat_concat.
-      { apply IHsdd_apply1. assumption. }
-      { apply IHsdd_apply2. assumption. }
-  - apply IHsdd_apply.
-    + assumption.
+  - subst. apply unsat_concat.
+    + apply IHsdd_apply1. assumption.
+    + apply IHsdd_apply2. assumption.
+  - apply IHsdd_apply. assumption.
   - apply unsat_append.
-    + apply IHsdd_apply.
-      { apply (unsat_split_l l11 l12).
-        - assumption. }
-    + apply IHsdd_apply0.
-      { apply (unsat_split_r l11 l12).
-        + assumption.
-      }
+    + apply IHsdd_apply. apply (unsat_split_l l11 l12). assumption. 
+    + apply IHsdd_apply0. apply (unsat_split_r l11 l12). assumption.
   - inversion H. subst. constructor.
     + apply IHsdd_apply1. assumption.
     + assumption.
-    + apply UnsatOrSub.
-      * apply IHsdd_apply2. assumption.
-      * assumption.
+    + apply UnsatOrSub;
+        try apply IHsdd_apply2;
+        assumption.
 Qed.
 
 
