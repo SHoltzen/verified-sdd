@@ -623,26 +623,17 @@ Theorem sdd_decomposable :
     decomposable sdd.
 Proof.
   intros sdd0 v Hsdd0 Hv.
-  induction Hsdd0; repeat constructor.
+  induction Hsdd0;
+    repeat constructor.
   - inversion Hv. subst.
     apply IHHsdd0_1 in H1.
     apply IHHsdd0_2 in H2.
     apply IHHsdd0_3 in Hv.
-    eapply decomposable_pairs_pair_vt.
-    + instantiate (1 := lvtree). assumption.
-    + instantiate (1 := lSet). assumption.
-    + instantiate (1 := rvtree). assumption.
-    + instantiate (1 := rSet). assumption.
-    + assumption.
-    + inversion Hv. assumption.
+    inversion Hv. subst. 
+    eapply (decomposable_pairs_pair_vt prime sub tail lvtree rvtree lSet rSet); assumption.
   - inversion Hv. subst. apply IHHsdd0. assumption.
   - inversion Hv. subst. apply IHHsdd0. assumption.
 Qed.
-
-    apply IHHsdd0_3 in Hv.
-
-    inversion Hv. subst.
-    eapply decomposable_pairs_pair.
 
 
 (* ---------------------------- *)
