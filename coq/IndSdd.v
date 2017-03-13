@@ -594,15 +594,7 @@ decomposable_pairs : list (sdd*sdd) -> Prop :=
                                                       sdd_varSet s sVs ->
                                                       disjoint pVs sVs ->
                                                       decomposable_pairs rest ->
-                                                      decomposable_pairs ((p, s)::rest)
-| decomposable_pairs_pair_vt   : forall p s rest pV sV pVs sVs,
-                                        sdd_vtree p pV ->
-                                        vtree_varSet pV pVs ->
-                                        sdd_vtree s sV ->
-                                        vtree_varSet sV sVs ->
-                                        disjoint pVs sVs ->
-                                        decomposable_pairs rest ->
-                                        decomposable_pairs ((p, s)::rest).
+                                                      decomposable_pairs ((p, s)::rest).
 
 Theorem sdd_vtree_vars :
   forall sdd v vs1 vs2,
@@ -615,6 +607,18 @@ Proof.
   induction H_sdd0_v; try (inversion Hv; inversion Hsdd; inversion H2; subst; repeat constructor).
   - inversion H5. constructor.
   - Admitted.
+
+Theorem sdd_has_varSet :
+  forall sdd, exists vs, sdd_varSet sdd vs.
+Proof.
+  intros.
+  induction sdd0.
+  - induction l; eapply ex_intro.
+    + repeat constructor.
+    + repeat constructor. destruct a.
+      eapply sddList_varSet_pair.
+      * Admitted.
+    
 
 Theorem sdd_decomposable :
   forall sdd v,
@@ -629,8 +633,19 @@ Proof.
     apply IHHsdd0_1 in H1.
     apply IHHsdd0_2 in H2.
     apply IHHsdd0_3 in Hv.
-    inversion Hv. subst. 
-    eapply (decomposable_pairs_pair_vt prime sub tail lvtree rvtree lSet rSet); assumption.
+    inversion Hv. subst.
+    assert (exists vs, sdd_varSet prime vs). apply (sdd_has_varSet prime).
+    destruct H as [pVs H].
+    assert (exists vs, sdd_varSet sub vs). apply (sdd_has_varSet sub).
+    destruct H6 as [sVs H6].
+    eapply (decomposable_pairs_pair_sdd).
+    + instantiate (1 := pVs). assumption.
+    + instantiate (1 := sVs). assumption.
+    + apply (subsets_disjoint pVs sVs lSet rSet).
+      * apply (sdd_vtree_vars prime lvtree lSet pVs); assumption.
+      * apply (sdd_vtree_vars sub rvtree rSet sVs); assumption.
+      * assumption.
+    + assumption. 
   - inversion Hv. subst. apply IHHsdd0. assumption.
   - inversion Hv. subst. apply IHHsdd0. assumption.
 Qed.

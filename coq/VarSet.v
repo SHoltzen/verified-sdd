@@ -53,6 +53,12 @@ Inductive union : varSet -> varSet -> varSet -> Prop :=
                                               union rest vsInt vsRes ->
                                               union (Var n rest) vs vsRes.
 
+Theorem union_comm :
+  forall v1 v2 vRes,
+    union v1 v2 vRes ->
+    union v2 v1 vRes.
+Admitted.
+
 Theorem union_unique :
   forall vs1 vs2 vsRes, unique vs1 ->
                         unique vs2 ->
@@ -81,6 +87,29 @@ Inductive subset : varSet -> varSet -> Prop :=
                                    subset rest vs ->
                                    subset (Var n rest) vs.
 
+Theorem subsets_disjoint :
+  forall v1 v2 va vb,
+  subset v1 va ->
+  subset v2 vb ->
+  disjoint va vb ->
+  disjoint v1 v2.
+Proof.
+  Admitted.
+ 
+
 Inductive equal : varSet -> varSet -> Prop :=
 | equal_ : forall vs1 vs2, subset vs1 vs2 -> subset vs2 vs1 -> equal vs1 vs2.
 
+Theorem union_lvar :
+  forall n rest v2 vInt vRes,
+  union rest v2 vInt ->
+  union (Var n rest) v2 vRes ->
+  equal vRes (Var n vInt).
+Admitted.
+
+Theorem union_rvar :
+  forall n rest v2 vInt vRes,
+  union v2 rest vInt ->
+  union v2 (Var n rest) vRes ->
+  equal vRes (Var n vInt).
+Admitted.
