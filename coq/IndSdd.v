@@ -645,21 +645,6 @@ Lemma allPairs_subset :
   - inversion H2. constructor.
   - Admitted.
 
-Lemma vNode_subset_left :
-  forall l r vs1 vs2,
-  vtree_varSet (VNode l r) vs1 ->
-  vtree_varSet l vs2 ->
-  subset vs1 vs2.
-Admitted.
-
-Lemma vNode_subset_right :
-  forall l r vs1 vs2,
-  vtree_varSet (VNode l r) vs1 ->
-  vtree_varSet r vs2 ->
-  subset vs1 vs2.
-Admitted.
-
-
 Theorem sdd_vtree_vars :
   forall sdd v vs1 vs2,
     sdd_vtree sdd v ->
@@ -747,7 +732,7 @@ Proof.
     + instantiate (1 := sVs). assumption.
     + apply (subsets_disjoint pVs sVs lSet rSet).
       * apply (sdd_vtree_vars prime lvtree lSet pVs); assumption.
-      * apply (sdd_vtree_vars_vars sub rvtree rSet sVs); assumption.
+      * apply (sdd_vtree_vars sub rvtree rSet sVs); assumption.
       * assumption.
     + assumption. 
   - inversion Hv. subst. apply IHHsdd0. assumption.
