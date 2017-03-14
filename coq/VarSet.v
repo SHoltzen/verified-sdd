@@ -113,3 +113,33 @@ Theorem union_rvar :
   union v2 (Var n rest) vRes ->
   equal vRes (Var n vInt).
 Admitted.
+
+Theorem subsets_union :
+  forall v1 v2 v3 va vb vc,
+    subset v1 va ->
+    subset v2 vb ->
+    union v1 v2 v3 ->
+    union va vb vc ->
+    subset v3 vc.
+Admitted.
+
+Theorem self_union :
+  forall v,
+    union v v v.
+Admitted.
+
+Theorem union_implies_subset :
+  forall a b c,
+    union a b c -> subset a c.
+Admitted.
+
+Theorem subset_transitivity :
+  forall a b c,
+    subset a b -> subset b c -> subset a c.
+Admitted.
+
+Theorem union_symmetry :
+  forall a b c,
+    union a b c -> union b a c.
+Admitted.
+

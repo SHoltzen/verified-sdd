@@ -382,6 +382,41 @@ Inductive sdd_vtree : sdd -> vtree -> Prop :=
     sdd_vtree sdd r ->
     sdd_vtree sdd (VNode l r).
 
+Section sdd_vtree_ind'.
+  Variable P: sdd -> vtree -> Prop.
+
+  Hypothesis AtomTrue'  : forall n  , P (Atom ATrue)      (VAtom n).
+  Hypothesis AtomFalse' : forall n  , P (Atom AFalse)      (VAtom n).
+  Hypothesis AtomVar'   : forall n b, P (Atom (AVar n b)) (VAtom n).
+
+  Hypothesis OrEmpty'   : forall v, P (Or []) v.
+  Hypothesis OrSingle'  : forall prime sub tail lvtree rvtree,
+    P prime lvtree ->
+    P sub rvtree ->
+    P (Or (tail)) (VNode lvtree rvtree) ->
+    P (Or ((prime, sub)::tail)) (VNode lvtree rvtree).
+
+  Hypothesis ExtendL'   : forall l r sdd, P sdd l -> P sdd (VNode l r).
+  Hypothesis ExtendR'   : forall l r sdd, P sdd r -> P sdd (VNode l r).
+
+  Fixpoint sdd_vtree_ind' (s:sdd) (v:vtree) (d: sdd_vtree s v): P s v :=
+    match d in (sdd_vtree s1 v1) return (P s1 v1) with
+    | AtomTrue  n   => AtomTrue'  n
+    | AtomFalse n   => AtomFalse' n
+    | AtomVar   n b => AtomVar'   n b
+
+    | OrEmpty   v                    => OrEmpty'   v
+    | OrSingle  p s lv rv r pd sd rd => OrSingle' p s r lv rv
+                                            (sdd_vtree_ind' p lv pd)
+                                            (sdd_vtree_ind' s rv sd)
+                                            (sdd_vtree_ind' (Or r) (VNode lv rv) rd)
+
+    | ExtendL l r sdd ld => ExtendL' l r sdd (sdd_vtree_ind' sdd l ld)
+    | ExtendR l r sdd rd => ExtendR' l r sdd (sdd_vtree_ind' sdd r rd)
+  end.
+
+End sdd_vtree_ind'.
+
 Lemma single_vtree :
   forall (prime sub : sdd) l v,
     sdd_vtree (Or [(prime, sub)]) v ->
@@ -596,6 +631,35 @@ decomposable_pairs : list (sdd*sdd) -> Prop :=
                                                       decomposable_pairs rest ->
                                                       decomposable_pairs ((p, s)::rest).
 
+Lemma allPairs_subset :
+  forall v tail rVs vs1,
+      AllPairs sdd
+          (λ sdd0 : sdd,
+           ∀ (v : vtree) (vs1 vs2 : varSet),
+             sdd_vtree sdd0 v → vtree_varSet v vs1 → sdd_varSet sdd0 vs2 → subset vs2 vs1) tail ->
+      sdd_vtree (Or tail) v   ->
+      vtree_varSet v vs1      ->
+      sddList_varSet tail rVs ->
+      subset rVs vs1.
+  induction tail; intros.
+  - inversion H2. constructor.
+  - Admitted.
+
+Lemma vNode_subset_left :
+  forall l r vs1 vs2,
+  vtree_varSet (VNode l r) vs1 ->
+  vtree_varSet l vs2 ->
+  subset vs1 vs2.
+Admitted.
+
+Lemma vNode_subset_right :
+  forall l r vs1 vs2,
+  vtree_varSet (VNode l r) vs1 ->
+  vtree_varSet r vs2 ->
+  subset vs1 vs2.
+Admitted.
+
+
 Theorem sdd_vtree_vars :
   forall sdd v vs1 vs2,
     sdd_vtree sdd v ->
@@ -603,10 +667,38 @@ Theorem sdd_vtree_vars :
     sdd_varSet sdd vs2 ->
     subset vs2 vs1.
 Proof.
-  intros sdd0 v vs1 vs2 H_sdd0_v Hv Hsdd.
-  induction H_sdd0_v; try (inversion Hv; inversion Hsdd; inversion H2; subst; repeat constructor).
-  - inversion H5. constructor.
-  - Admitted.
+  intros sdd0 v vs1 vs2 HsddVtree.
+  generalize dependent vs1.
+  generalize dependent vs2.
+  induction HsddVtree using sdd_vtree_ind'; intros vs1 vs2 Hvtree Hsdd.
+  - inversion Hvtree. inversion Hsdd. inversion H2. subst. constructor.
+  - inversion Hvtree. inversion Hsdd. inversion H2. subst. constructor.
+  - inversion Hvtree. inversion Hsdd. inversion H2. subst. repeat constructor.
+  - induction Hvtree; inversion Hsdd; subst. 
+    + inversion H0. constructor.
+    + apply union_implies_subset in H.
+      apply (subset_transitivity vs1 lSet resSet); assumption.
+  - inversion Hvtree. inversion Hsdd. inversion H6. subst.
+    apply (IHHsddVtree pVs) in H1.
+    apply (IHHsddVtree0 sVs) in H2.
+    apply (sdd_varSet_or) in H13.
+    apply (IHHsddVtree1 rVs vs2) in H13.
+    apply (subsets_union pVs sVs pairVs lSet rSet vs2) in H4.
+    assert (union vs2 vs2 vs2). apply self_union.
+    apply (subsets_union pairVs rVs vs1 vs2 vs2 vs2).
+    assumption. assumption. assumption. assumption. assumption. assumption.
+    assumption. assumption. assumption. assumption.
+  - inversion Hvtree. subst.
+    apply (IHHsddVtree vs1) in H1.
+    apply (union_implies_subset) in H4.
+    apply (subset_transitivity vs1 lSet vs2).
+    assumption. assumption. assumption.
+  - inversion Hvtree. subst.
+    apply (IHHsddVtree vs1) in H2.
+    apply (union_symmetry) in H4. apply (union_implies_subset) in H4.
+    apply (subset_transitivity vs1 rSet vs2).
+    assumption. assumption. assumption.
+Qed.
 
 Theorem sdd_has_varSet :
   forall sdd, exists vs, sdd_varSet sdd vs.
@@ -643,7 +735,7 @@ Proof.
     + instantiate (1 := sVs). assumption.
     + apply (subsets_disjoint pVs sVs lSet rSet).
       * apply (sdd_vtree_vars prime lvtree lSet pVs); assumption.
-      * apply (sdd_vtree_vars sub rvtree rSet sVs); assumption.
+      * apply (sdd_vtree_vars_vars sub rvtree rSet sVs); assumption.
       * assumption.
     + assumption. 
   - inversion Hv. subst. apply IHHsdd0. assumption.
