@@ -703,14 +703,26 @@ Qed.
 Theorem sdd_has_varSet :
   forall sdd, exists vs, sdd_varSet sdd vs.
 Proof.
-  intros.
-  induction sdd0.
-  - induction l; eapply ex_intro.
-    + repeat constructor.
-    + repeat constructor. destruct a.
-      eapply sddList_varSet_pair.
-      * Admitted.
-    
+  induction sdd0 using sdd_ind'.
+  - induction l.
+    + eapply ex_intro. instantiate (1 := Empty). repeat constructor.
+    + destruct a as [p s]. simpl in H. destruct H. destruct H0. apply IHl in H1.
+      destruct H. destruct H0. destruct H1.
+      assert (exists x2, union x x0 x2). apply exists_union. destruct H2.
+      assert (exists x3, union x1 x2 x3). apply exists_union. destruct H3.
+      eapply ex_intro.
+      instantiate (1 := x3).
+      repeat constructor. eapply sddList_varSet_pair.
+      * instantiate (1 := x). assumption.
+      * instantiate (1 := x0). assumption.
+      * instantiate (1 := x1). inversion H1. assumption.
+      * instantiate (1 := x2). assumption.
+      * apply union_symmetry in H3. assumption.
+  - destruct a; eapply ex_intro.
+    + instantiate (1 := Empty). repeat constructor.
+    + instantiate (1 := Empty). repeat constructor.
+    + instantiate (1 := (Var n Empty)). constructor. constructor.
+Qed.
 
 Theorem sdd_decomposable :
   forall sdd v,

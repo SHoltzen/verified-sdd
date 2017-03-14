@@ -143,3 +143,8 @@ Theorem union_symmetry :
     union a b c -> union b a c.
 Admitted.
 
+Theorem exists_union :
+  forall a b,
+  exists c, union a b c.
+Admitted.
+
