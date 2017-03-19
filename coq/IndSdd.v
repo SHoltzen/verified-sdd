@@ -1067,4 +1067,3 @@ Qed.*)
 (*     compile boolExp sdd → *)
 (*     eval_sdd sdd result input → *)
 (*     eval boolExp result input. *)
-
