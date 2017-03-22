@@ -238,20 +238,21 @@ Together, these properties would prove that our implementation of SDDs is valid,
 
 \subsection{Challenges}
 
-* use inductive judgements from the start
-* include useful data as arguments (pass vtree to apply)
-* seek the simplest implementation for proofs
+Working with Coq this quarter has given us a good feel for the differences between writing software in a traditional context, and doing so for the purpose of verification. 
+
+Because the type system and language are so powerful, it is easy to formulate the same solution in many ways. A great deal of what we learned to do in this course was to pick the approach that would be easiest to prove correct. For example, we chose to use inductive judgements to prove our algorithms correct, instead of working directly with Gallina code. 
+
+We also had trouble working with the \texttt{apply} operation, as it performs complex manipulations that Coq couldn't work with automatically. We produced custom inductive hypotheses to try and get around this, but working with the proofs for apply was much more difficult without Coq doing a lot of the decomposition automatically.
+
+\subsection{Things we'd do Differently}
+
+If we were to start from scratch, we would formulate our SDD operations as inductive judgements from the start. Each inductive judgement would include invariant information (the vtree) directly. While these judgements would not be formulated in the simplest way possible, having invariants on hand would greatly ease the proof process. We would use a similar SDD implementation, as it guarantees a degree of structural correctness that it is useful to have. Overall, using inductive judgements and encoding information directly would help us produce the results shown here more quickly, and would give us a better jumping off point to begin to reason about our original goals.
 
 \subsection{Strengths and Weaknesses of Coq}
 
-* need a strong grasp of theory and complex type systems
-  - dependent types
-  - curry howard isomorphism
-* bad UX
-  - want to look at multiple points in a proof
-  - want to organize hypothesis
-  - want to see data structures and proof judgements
+Overall, Coq is a powerful tool for proving software correct. By helping the user keep track of proof obligations and their knowledge, it helps the user formulate and tweak strategies for their proofs. 
 
+But, it relies heavily on a complex dependent type system and (at times) a strong user understanding of the Curry-Howard isomorphism. Both of these difficult concepts make  Coq in its current form fairly inaccessible to the average user. If this system is to be adopted in industry (perhaps only for mission critical systems), the system should be something that an industry professional can use confidently, without requiring a deep understanding of these esoteric concepts.
 
 \bibliographystyle{plain}
 \bibliography{bib}
